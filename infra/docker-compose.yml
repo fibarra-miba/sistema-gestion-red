@@ -27,5 +27,17 @@ services:
     depends_on:
       - postgres
 
+  api:
+    build:
+      context: ../backend
+    container_name: api_local
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://admin:admin123@postgres:5432/mi_base
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+
 volumes:
   pgdata:
