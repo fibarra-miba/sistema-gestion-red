@@ -1,86 +1,91 @@
 from typing import Optional, Dict, Any, List
 import psycopg
-from app.db import get_connection
 
-def list_clientes(limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+def list_clientes(
+    conn: psycopg.Connection,
+    limit: int = 50,
+    offset: int = 0
+) -> List[Dict[str, Any]]:
     query = """
         SELECT
             cliente_id,
-            nombre,
-            apellido,
-            dni,
-            telefono,
-            email,
-            fecha_alta,
+            nombre_cliente,
+            apellido_cliente,
+            dni_cliente,
+            telefono_cliente,
+            email_cliente,
+            fecha_alta_cliente,
             estado_cliente_id,
-            observaciones
+            observacion_cliente
         FROM clientes
         ORDER BY cliente_id
         LIMIT %s OFFSET %s
     """
+    with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+        cur.execute(query, (limit, offset))
+        return cur.fetchall()
 
-    with get_connection() as conn:
-        with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
-            cur.execute(query, (limit, offset))
-            return cur.fetchall()
 
-def get_cliente_by_id(cliente_id: int) -> Optional[Dict[str, Any]]:
+def get_cliente_by_id(
+    conn: psycopg.Connection,
+    cliente_id: int
+) -> Optional[Dict[str, Any]]:
     query = """
         SELECT
             cliente_id,
-            nombre,
-            apellido,
-            dni,
-            telefono,
-            email,
-            fecha_alta,
+            nombre_cliente,
+            apellido_cliente,
+            dni_cliente,
+            telefono_cliente,
+            email_cliente,
+            fecha_alta_cliente,
             estado_cliente_id,
-            observaciones
+            observacion_cliente
         FROM clientes
         WHERE cliente_id = %s
     """
+    with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+        cur.execute(query, (cliente_id,))
+        return cur.fetchone()
 
-    with get_connection() as conn:
-        with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
-            cur.execute(query, (cliente_id,))
-            return cur.fetchone()
 
-def create_cliente(data: Dict[str, Any]) -> Dict[str, Any]:
+def create_cliente(
+    conn: psycopg.Connection,
+    data: Dict[str, Any]
+) -> Dict[str, Any]:
     query = """
         INSERT INTO clientes (
-            nombre,
-            apellido,
-            dni,
-            telefono,
-            email,
-            fecha_alta,
+            nombre_cliente,
+            apellido_cliente,
+            dni_cliente,
+            telefono_cliente,
+            email_cliente,
+            fecha_alta_cliente,
             estado_cliente_id,
-            observaciones
+            observacion_cliente
         )
         VALUES (
-            %(nombre)s,
-            %(apellido)s,
-            %(dni)s,
-            %(telefono)s,
-            %(email)s,
+            %(nombre_cliente)s,
+            %(apellido_cliente)s,
+            %(dni_cliente)s,
+            %(telefono_cliente)s,
+            %(email_cliente)s,
             NOW(),
             %(estado_cliente_id)s,
-            %(observaciones)s
+            %(observacion_cliente)s
         )
         RETURNING
             cliente_id,
-            nombre,
-            apellido,
-            dni,
-            telefono,
-            email,
-            fecha_alta,
+            nombre_cliente,
+            apellido_cliente,
+            dni_cliente,
+            telefono_cliente,
+            email_cliente,
+            fecha_alta_cliente,
             estado_cliente_id,
-            observaciones;
+            observacion_cliente;
     """
-
-    with get_connection() as conn:
-        with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
-            cur.execute(query, data)
-            return cur.fetchone()
+    with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+        cur.execute(query, data)
+        return cur.fetchone()
 

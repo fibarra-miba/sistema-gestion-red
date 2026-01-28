@@ -1,19 +1,24 @@
 import os
 import psycopg
+from typing import Generator
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set")
 
-def get_connection():
+
+def get_db() -> Generator[psycopg.Connection, None, None]:
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL is not set")
-
-    return psycopg.connect(DATABASE_URL)
-
-
-def check_database():
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1")
-            cur.fetchone()
+        
+    conn = psycopg.connect(DATABASE_URL)
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 

@@ -2,16 +2,22 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
 
+
 class ClienteOut(BaseModel):
     cliente_id: int
-    nombre: str
-    apellido: str
-    dni: str
-    telefono: str
-    email: Optional[EmailStr] = None
-    fecha_alta: Optional[datetime] = None
+    nombre: str = Field(..., alias="nombre_cliente")
+    apellido: str = Field(..., alias="apellido_cliente")
+    dni: str = Field(..., alias="dni_cliente")
+    telefono: str = Field(..., alias="telefono_cliente")
+    email: Optional[EmailStr] = Field(None, alias="email_cliente")
+    fecha_alta: Optional[datetime] = Field(None, alias="fecha_alta_cliente")
     estado_cliente_id: int
-    observaciones: Optional[str] = None
+    observaciones: Optional[str] = Field(None, alias="observacion_cliente")
+
+    class Config:
+        allow_population_by_field_name = True
+        from_attributes = True
+
 
 class ClienteCreate(BaseModel):
     nombre: str = Field(..., min_length=1, max_length=50)

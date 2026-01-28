@@ -29,13 +29,17 @@ services:
 
   api:
     build:
-      context: ../backend
+      context: ..
+      dockerfile: backend/Dockerfile
     container_name: api_local
     restart: always
     environment:
       DATABASE_URL: postgresql://admin:admin123@postgres:5432/mi_base
+      DATABASE_URL_TEST: postgresql://admin:admin123@postgres:5432/mi_base_test
     ports:
       - "8000:8000"
+    volumes:
+      - ../backend:/app
     depends_on:
       - postgres
 
