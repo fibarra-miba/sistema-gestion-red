@@ -5,7 +5,6 @@ from typing import Dict, Any
 from app.repositories import (
     clientes_repo,
     domicilios_repo,
-    cliente_domicilio_repo,
     cuentas_repo
 )
 
@@ -62,16 +61,20 @@ class ClienteService:
 
         cliente = clientes_repo.create_cliente(conn, cliente_data)
         cliente_id = cliente["cliente_id"]
+        domicilio_payload = payload["domicilio"]
 
-        domicilio = domicilios_repo.create_domicilio(
+        # Si en algún caso el cliente ya pudiera existir con domicilio vigente,
+        # cerramos vigentes. Para onboarding puro (cliente nuevo) no afectará nada.
+        domicilios_repo.close_domicilios_vigentes(
             conn,
-            payload["domicilio"]
+            cliente_id=cliente_id,
+            fecha_hasta_dom=domicilio_payload.get("fecha_desde_dom")  # opcional: cierre “hasta” cuando entra el nuevo
         )
 
-        cliente_domicilio_repo.create_cliente_domicilio(
+        domicilios_repo.create_domicilio(
             conn,
             cliente_id,
-            domicilio["domicilio_id"]
+            domicilio_payload
         )
 
         cuentas_repo.create_cuenta(
@@ -81,4 +84,3 @@ class ClienteService:
         )
 
         return cliente
-

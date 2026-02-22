@@ -13,10 +13,32 @@ sys.path.insert(0, str(BASE_DIR))
 
 from app.main import app  # noqa: E402
 
+
 # =========================
-# SQL paths
+# SQL paths (sin crear /app/infra)
 # =========================
-SQL_DIR = BASE_DIR / "infra" / "sql"
+def _resolve_sql_dir(base_dir: pathlib.Path) -> pathlib.Path:
+    """
+    Prioridad:
+    1) /app/test/sql  (lo correcto: SQL de tests dentro del backend)
+    2) /app/infra/sql (fallback si existiera por mount, pero NO lo creamos)
+    """
+    candidate_1 = base_dir / "test" / "sql"
+    if candidate_1.exists():
+        return candidate_1
+
+    candidate_2 = base_dir / "infra" / "sql"
+    if candidate_2.exists():
+        return candidate_2
+
+    raise FileNotFoundError(
+        "No se encontró el directorio de SQL. "
+        "Creá backend/test/sql y copiá ahí 001_schema.sql, 002_constraints.sql, "
+        "003_indexes.sql, 010_seed.sql."
+    )
+
+
+SQL_DIR = _resolve_sql_dir(BASE_DIR)
 
 SCHEMA_FILES = [
     SQL_DIR / "001_schema.sql",
@@ -25,11 +47,13 @@ SCHEMA_FILES = [
     SQL_DIR / "010_seed.sql",
 ]
 
+
 # =========================
 # Helpers
 # =========================
 def _read_sql(path: pathlib.Path) -> str:
     return path.read_text(encoding="utf-8")
+
 
 def _exec_sql(conn: psycopg.Connection, sql: str) -> None:
     statements = [s.strip() for s in sql.split(";") if s.strip()]
@@ -37,11 +61,13 @@ def _exec_sql(conn: psycopg.Connection, sql: str) -> None:
         for stmt in statements:
             cur.execute(stmt)
 
+
 def _recreate_public_schema(conn: psycopg.Connection) -> None:
     with conn.cursor() as cur:
         cur.execute("DROP SCHEMA IF EXISTS public CASCADE;")
         cur.execute("CREATE SCHEMA public;")
         cur.execute("GRANT ALL ON SCHEMA public TO public;")
+
 
 # =========================
 # Fixtures
@@ -52,6 +78,7 @@ def test_db_url() -> str:
     if not url:
         raise RuntimeError("DATABASE_URL not set")
     return url
+
 
 @pytest.fixture(scope="function")
 def db_conn(test_db_url: str):
@@ -68,8 +95,8 @@ def db_conn(test_db_url: str):
     finally:
         conn.close()
 
+
 @pytest.fixture(scope="function")
 async def client(db_conn):
     async with AsyncClient(app=app, base_url="http://test") as ac:
         yield ac
-
