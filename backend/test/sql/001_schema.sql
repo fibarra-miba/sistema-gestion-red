@@ -69,9 +69,19 @@ CREATE TABLE IF NOT EXISTS tipo_pago (
   descripcion_tpago	VARCHAR(15)
 );
 
+CREATE TABLE IF NOT EXISTS tipo_promocion (
+  tipo_promo_id		BIGSERIAL PRIMARY KEY,
+  descripcion_tpromo	VARCHAR(30)
+);
+
 CREATE TABLE IF NOT EXISTS tipo_movimiento_stock (
   tipo_mov_id 		BIGSERIAL PRIMARY KEY,
-  descripcion_tmstock 	VARCHAR(100)
+  descripcion_tmstock 	VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS medios_pagos (
+  medio_pago_id	BIGSERIAL PRIMARY KEY,
+  descripcion	VARCHAR(20) NOT NULL
 );
 
 
@@ -90,7 +100,7 @@ CREATE TABLE IF NOT EXISTS domicilios (
   referencias		VARCHAR(100),
   fecha_desde_dom	TIMESTAMPTZ NOT NULL,
   fecha_hasta_dom	TIMESTAMPTZ,
-  estado_domicilio	BIGINT NOT NULL
+  estado_domicilio_id	BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS clientes (
@@ -108,16 +118,19 @@ CREATE TABLE IF NOT EXISTS clientes (
 CREATE TABLE IF NOT EXISTS contratos (
   contrato_id		BIGSERIAL PRIMARY KEY,
   cliente_id		BIGINT NOT NULL,
+  domicilio_id		BIGINT NOT NULL,
   plan_id		BIGINT NOT NULL,
   fecha_inicio_contrato	TIMESTAMPTZ NOT NULL,
   fecha_fin_contrato	TIMESTAMPTZ,
+  aplica_promocion	BOOLEAN NOT NULL DEFAULT FALSE,
+  promocion_id		BIGINT,
   estado_contrato_id	BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS cuenta (
   cuenta_id               BIGSERIAL PRIMARY KEY,
   cliente_id              BIGINT NOT NULL,
-  saldo_cuenta            NUMERIC(12,2),
+  saldo_cuenta            NUMERIC(12,2) NOT NULL DEFAULT 0,
   estado_cuenta_id        BIGINT NOT NULL
 );
 
@@ -128,7 +141,7 @@ CREATE TABLE IF NOT EXISTS detalle_cuenta (
   tipo_mov_det_cuenta_id	BIGINT NOT NULL,
   factura_venta_id		BIGINT,
   pago_id			BIGINT,
-  importe_cuenta		NUMERIC(12,2),
+  importe_cuenta		NUMERIC(12,2) NOT NULL,
   observacion_cuenta		VARCHAR(200)
 );
 
@@ -149,19 +162,21 @@ CREATE TABLE IF NOT EXISTS promociones (
   promocion_id 			BIGSERIAL PRIMARY KEY,
   nombre_promo 			VARCHAR(100) NOT NULL,
   descripcion_promo 		VARCHAR(150),
+  tipo_promo_id			BIGINT NOT NULL,
+  porcentaje_descuento		NUMERIC(5,2),
+  monto_descuento		NUMERIC(12,2),
   fecha_vigencia_desde_promo 	TIMESTAMPTZ NOT NULL,
   fecha_vigencia_hasta_promo 	TIMESTAMPTZ,
-  activo_promo 			BOOLEAN
+  activo_promo 			BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS precios_planes (
   precios_planes_id 		BIGSERIAL PRIMARY KEY NOT NULL,
   plan_id			BIGINT NOT NULL,
-  promocion_id 			BIGINT,
   precio_mensual_pplanes 	NUMERIC(12,2) NOT NULL,
   fecha_desde_pplanes 		TIMESTAMPTZ NOT NULL,
   fecha_hasta_pplanes 		TIMESTAMPTZ,
-  activo_pplanes 		BOOLEAN
+  activo_pplanes 		BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS planes (
@@ -331,7 +346,7 @@ CREATE TABLE IF NOT EXISTS facturas_ventas (
   fecha_emision_fventas 	TIMESTAMPTZ NOT NULL DEFAULT now(),
   fecha_vencimiento_fventas	TIMESTAMPTZ,
   importe_fventas 		NUMERIC(12,2) NOT NULL,
-  bonificacion_fventas 		NUMERIC(12,2) DEFAULT 0,
+  bonificacion_fventas 		NUMERIC(12,2) NOT NULL DEFAULT 0,
   importe_total_fventas 	NUMERIC(12,2) NOT NULL
 );
 
@@ -357,8 +372,17 @@ CREATE TABLE IF NOT EXISTS pagos_movimientos (
   pago_id		BIGINT NOT NULL,
   fecha_pago		TIMESTAMPTZ NOT NULL,
   monto_pago		NUMERIC(12,2) NOT NULL CHECK (monto_pago >= 0),
-  medio_pago		VARCHAR(20),
+  medio_pago_id		BIGINT NOT NULL,
   tipo_pago_id		BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS pagos_comprobantes (
+  pago_comprobante_id		BIGSERIAL PRIMARY KEY,
+  pago_mov_id			BIGINT NOT NULL,
+  comprobante_url		TEXT NOT NULL,
+  comprobante_mime		VARCHAR(60),
+  comprobante_hash		VARCHAR(64),
+  comprobante_created_at 	TIMESTAMP NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS recibos (

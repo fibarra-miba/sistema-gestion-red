@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg import Connection
 
 from app.db import get_db
-from app.repositories.contrato_repo import ContractRepository
+from app.repositories.contratos_repo import ContractRepository
 from app.services.contratos_service import ContractService
 from app.schemas.contrato import (
     ContractCreate,
@@ -16,18 +16,10 @@ from app.schemas.contrato import (
 router = APIRouter(prefix="/contratos", tags=["Contratos"])
 
 
-# ==========================================================
-# Dependency builder
-# ==========================================================
-
 def get_service(conn: Connection = Depends(get_db)) -> ContractService:
     repo = ContractRepository(conn)
     return ContractService(repo)
 
-
-# ==========================================================
-# CREATE
-# ==========================================================
 
 @router.post("", response_model=ContractResponse)
 def create_contract(
@@ -37,16 +29,13 @@ def create_contract(
     try:
         contract = service.create_contract(
             cliente_id=payload.cliente_id,
+            domicilio_id=payload.domicilio_id,
             plan_id=payload.plan_id,
         )
         return contract
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
-# ==========================================================
-# GET BY ID
-# ==========================================================
 
 @router.get("/{contract_id}", response_model=ContractResponse)
 def get_contract(
@@ -59,10 +48,6 @@ def get_contract(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-# ==========================================================
-# LIST BY CLIENTE
-# ==========================================================
-
 @router.get("", response_model=ContractListResponse)
 def list_contracts(
     cliente_id: int = Query(...),
@@ -71,10 +56,6 @@ def list_contracts(
     contracts = service.list_by_cliente(cliente_id)
     return {"items": contracts}
 
-
-# ==========================================================
-# ACTIVATE
-# ==========================================================
 
 @router.post("/{contract_id}/activate")
 def activate_contract(
@@ -88,10 +69,6 @@ def activate_contract(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# ==========================================================
-# SUSPEND
-# ==========================================================
-
 @router.post("/{contract_id}/suspend")
 def suspend_contract(
     contract_id: int,
@@ -103,10 +80,6 @@ def suspend_contract(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
-# ==========================================================
-# RESUME
-# ==========================================================
 
 @router.post("/{contract_id}/resume")
 def resume_contract(
@@ -120,10 +93,6 @@ def resume_contract(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# ==========================================================
-# CANCEL
-# ==========================================================
-
 @router.post("/{contract_id}/cancel")
 def cancel_contract(
     contract_id: int,
@@ -135,10 +104,6 @@ def cancel_contract(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
-# ==========================================================
-# TERMINATE (BAJA)
-# ==========================================================
 
 @router.post("/{contract_id}/terminate")
 def terminate_contract(
@@ -152,10 +117,6 @@ def terminate_contract(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# ==========================================================
-# CHANGE PLAN
-# ==========================================================
-
 @router.post("/{contract_id}/change-plan", response_model=ContractResponse)
 def change_plan(
     contract_id: int,
@@ -163,10 +124,8 @@ def change_plan(
     service: ContractService = Depends(get_service),
 ):
     try:
-        new_contract = service.change_plan(
-            contrato_id=contract_id,
-            new_plan_id=payload.new_plan_id,
-        )
+        # Posicional para evitar mismatch de keywords
+        new_contract = service.change_plan(contract_id, payload.new_plan_id)
         return new_contract
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

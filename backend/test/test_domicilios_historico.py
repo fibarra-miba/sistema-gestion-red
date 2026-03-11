@@ -50,7 +50,7 @@ def _insert_domicilio_vigente_minimo(conn: psycopg.Connection, cliente_id: int, 
     """
     q = """
         INSERT INTO domicilios (
-            cliente_id, calle, numero, fecha_desde_dom, fecha_hasta_dom, estado_domicilio
+            cliente_id, calle, numero, fecha_desde_dom, fecha_hasta_dom, estado_domicilio_id
         )
         VALUES (%s, %s, %s, %s, NULL, %s)
         RETURNING domicilio_id;
@@ -112,7 +112,7 @@ def test_create_domicilio_setea_fecha_desde_now_si_falta(db_conn):
             "complejo": None,
             "referencias": None,
             # fecha_desde_dom ausente => COALESCE(..., NOW())
-            "estado_domicilio": 1,
+            "estado_domicilio_id": 1,
         },
     )
 
@@ -179,7 +179,7 @@ def test_flujo_cambio_domicilio_cierra_anterior_y_crea_nuevo_vigente(db_conn):
             "referencias": "Portón negro",
             "fecha_desde_dom": evento,
             "fecha_hasta_dom": None,
-            "estado_domicilio": 1,  # VIGENTE
+            "estado_domicilio_id": 1,  # VIGENTE
         },
     )
 

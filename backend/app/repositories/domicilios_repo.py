@@ -1,3 +1,5 @@
+# app/repositories/domicilios_repo.py
+
 import psycopg
 from typing import Dict, Any
 from datetime import datetime
@@ -40,7 +42,7 @@ def create_domicilio(
             referencias,
             fecha_desde_dom,
             fecha_hasta_dom,
-            estado_domicilio
+            estado_domicilio_id
         )
         VALUES (
             %(cliente_id)s,
@@ -52,7 +54,7 @@ def create_domicilio(
             %(referencias)s,
             COALESCE(%(fecha_desde_dom)s, NOW()),
             %(fecha_hasta_dom)s,
-            %(estado_domicilio)s
+            %(estado_domicilio_id)s
         )
         RETURNING domicilio_id;
     """
@@ -69,7 +71,7 @@ def create_domicilio(
                 "referencias": data.get("referencias"),
                 "fecha_desde_dom": data.get("fecha_desde_dom"),
                 "fecha_hasta_dom": data.get("fecha_hasta_dom"),
-                "estado_domicilio": data.get("estado_domicilio"),
+                "estado_domicilio_id": data.get("estado_domicilio_id"),
             }
         )
         return cur.fetchone()

@@ -1,4 +1,4 @@
-# app/schemas/contract.py
+# app/schemas/contrato.py
 
 from datetime import datetime
 from enum import Enum
@@ -25,8 +25,9 @@ class ContractStatus(str, Enum):
 # ==========================================================
 
 class ContractCreate(BaseModel):
-    cliente_id: int
-    plan_id: int
+    cliente_id: int = Field(..., ge=1)
+    domicilio_id: int = Field(..., ge=1)
+    plan_id: int = Field(..., ge=1)
 
 
 # ==========================================================
@@ -36,9 +37,10 @@ class ContractCreate(BaseModel):
 class ContractResponse(BaseModel):
     contrato_id: int
     cliente_id: int
+    domicilio_id: int
     plan_id: int
     fecha_inicio_contrato: datetime
-    fecha_fin_contrato: Optional[datetime]
+    fecha_fin_contrato: Optional[datetime] = None
     estado_contrato_id: int
 
     class Config:
@@ -66,4 +68,4 @@ class ContractTerminate(BaseModel):
 
 
 class ContractChangePlan(BaseModel):
-    new_plan_id: int
+    new_plan_id: int = Field(..., ge=1)

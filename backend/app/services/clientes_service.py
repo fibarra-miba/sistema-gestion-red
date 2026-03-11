@@ -5,7 +5,7 @@ from typing import Dict, Any
 from app.repositories import (
     clientes_repo,
     domicilios_repo,
-    cuentas_repo
+    cuentas_repo,  # se mantiene import, aunque no use create_cuenta
 )
 
 
@@ -46,7 +46,28 @@ class ClienteService:
             raise
 
     @staticmethod
+    def _create_cuenta_minimal(conn: psycopg.Connection, cliente_id: int, estado_cuenta_id: int) -> None:
+        """
+        Inserta cuenta mínima.
+        Motivo: el repo cuentas_repo no expone create_cuenta (según error de tests),
+        y no queremos refactor grande ahora.
+        """
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO cuenta (cliente_id, saldo_cuenta, estado_cuenta_id)
+                VALUES (%s, 0, %s)
+                RETURNING cuenta_id
+                """,
+                (cliente_id, estado_cuenta_id),
+            )
+            _ = cur.fetchone()
+
+    @staticmethod
     def onboarding(conn, payload):
+        """
+        Crea Cliente + Domicilio vigente + Cuenta, de forma transaccional (la transacción la maneja el get_db / test fixture).
+        """
         cliente_payload = payload["cliente"]
 
         cliente_data = {
@@ -61,26 +82,29 @@ class ClienteService:
 
         cliente = clientes_repo.create_cliente(conn, cliente_data)
         cliente_id = cliente["cliente_id"]
+
         domicilio_payload = payload["domicilio"]
 
-        # Si en algún caso el cliente ya pudiera existir con domicilio vigente,
-        # cerramos vigentes. Para onboarding puro (cliente nuevo) no afectará nada.
+        # Compat: tests envían "estado_domicilio" (payload), DB exige "estado_domicilio_id"
+        if domicilio_payload.get("estado_domicilio_id") is None and domicilio_payload.get("estado_domicilio") is not None:
+            domicilio_payload["estado_domicilio_id"] = domicilio_payload["estado_domicilio"]
+
+        # Default razonable para onboarding: VIGENTE = 1 (según seed)
+        if domicilio_payload.get("estado_domicilio_id") is None:
+            domicilio_payload["estado_domicilio_id"] = 1
+
+        # Para onboarding de cliente nuevo no hay vigentes, pero es seguro y deja el flujo consistente
         domicilios_repo.close_domicilios_vigentes(
             conn,
             cliente_id=cliente_id,
-            fecha_hasta_dom=domicilio_payload.get("fecha_desde_dom")  # opcional: cierre “hasta” cuando entra el nuevo
+            fecha_hasta_dom=domicilio_payload.get("fecha_desde_dom")
         )
 
-        domicilios_repo.create_domicilio(
-            conn,
-            cliente_id,
-            domicilio_payload
-        )
+        domicilios_repo.create_domicilio(conn, cliente_id, domicilio_payload)
 
-        cuentas_repo.create_cuenta(
-            conn,
-            cliente_id,
-            payload["cuenta"]["estado_cuenta_id"]
-        )
+        # Cuenta: create minimal (saldo 0, estado según payload)
+        estado_cuenta_id = payload["cuenta"]["estado_cuenta_id"]
+        self_check = estado_cuenta_id  # para que quede claro que se usa el valor (sin mutar payload)
+        ClienteService._create_cuenta_minimal(conn, cliente_id, self_check)
 
         return cliente

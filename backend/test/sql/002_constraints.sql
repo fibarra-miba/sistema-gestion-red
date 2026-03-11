@@ -24,7 +24,7 @@ ALTER TABLE domicilios
 
 ALTER TABLE domicilios
   ADD CONSTRAINT fk_domicilios_estado
-  FOREIGN KEY (estado_domicilio)
+  FOREIGN KEY (estado_domicilio_id)
   REFERENCES estado_domicilio(estado_domicilio_id);
 
 -- ============================
@@ -108,11 +108,6 @@ ALTER TABLE precios_planes
   FOREIGN KEY (plan_id)
   REFERENCES planes(plan_id);
 
-ALTER TABLE precios_planes
-  ADD CONSTRAINT fk_pplanes_promo
-  FOREIGN KEY (promocion_id)
-  REFERENCES promociones(promocion_id);
-
 -- ============================
 -- CONTRATOS
 -- ============================
@@ -122,14 +117,63 @@ ALTER TABLE contratos
   REFERENCES clientes(cliente_id);
 
 ALTER TABLE contratos
+  ADD CONSTRAINT fk_contrato_domicilio
+  FOREIGN KEY (domicilio_id)
+  REFERENCES domicilios(domicilio_id);
+
+ALTER TABLE contratos
   ADD CONSTRAINT fk_contrato_plan
   FOREIGN KEY (plan_id)
   REFERENCES planes(plan_id);
 
 ALTER TABLE contratos
+  ADD CONSTRAINT fk_contrato_promocion
+  FOREIGN KEY (promocion_id)
+  REFERENCES promociones(promocion_id);
+
+ALTER TABLE contratos
+  ADD CONSTRAINT chk_contrato_promocion_consistente
+  CHECK (
+    (aplica_promocion = FALSE AND promocion_id IS NULL)
+    OR
+    (aplica_promocion = TRUE  AND promocion_id IS NOT NULL)
+  );
+
+ALTER TABLE contratos
   ADD CONSTRAINT fk_contrato_estado
   FOREIGN KEY (estado_contrato_id)
   REFERENCES estado_contrato(estado_contrato_id);
+
+-- Requerido para EXCLUDE con columna btree (domicilio_id) + range (tstzrange)
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+-- Máximo 1 contrato ACTIVO simultáneo por domicilio (no permite solapamiento de períodos)
+ALTER TABLE contratos
+  ADD CONSTRAINT ex_contrato_activo_no_solapado
+  EXCLUDE USING gist (
+    domicilio_id WITH =,
+    tstzrange(
+      fecha_inicio_contrato,
+      COALESCE(fecha_fin_contrato, 'infinity'::timestamptz),
+      '[)'
+    ) WITH &&
+  )
+  WHERE (estado_contrato_id = 3);
+
+-- ============================
+-- PROMOCIONES
+-- ============================
+ALTER TABLE promociones
+  ADD CONSTRAINT fk_promociones_tipo_promo
+  FOREIGN KEY (tipo_promo_id)
+  REFERENCES tipo_promocion(tipo_promo_id);
+
+-- ============================
+-- TIPO_PROMOCION
+-- ============================
+ALTER TABLE tipo_promocion
+  ADD CONSTRAINT uq_tipo_promocion_descripcion
+  UNIQUE (descripcion_tpromo);
 
 -- ============================
 -- PAGOS
@@ -165,6 +209,27 @@ ALTER TABLE pagos_movimientos
   ADD CONSTRAINT fk_pago_mov_tipo_pago
   FOREIGN KEY (tipo_pago_id)
   REFERENCES tipo_pago(tipo_pago_id);
+
+ALTER TABLE pagos_movimientos
+  ADD CONSTRAINT fk_pago_mov_medio_pago
+  FOREIGN KEY (medio_pago_id)
+  REFERENCES medios_pagos(medio_pago_id);
+
+-- ============================
+-- PAGOS_COMPROBANTES
+-- ============================
+ALTER TABLE pagos_comprobantes
+  ADD CONSTRAINT fk_pago_comprobante_mov
+  FOREIGN KEY (pago_mov_id)
+  REFERENCES pagos_movimientos(pago_mov_id)
+  ON DELETE CASCADE;
+
+-- ============================
+-- MEDIOS_PAGOS
+-- ============================
+ALTER TABLE medios_pagos
+  ADD CONSTRAINT uq_medios_pagos_descripcion
+  UNIQUE (descripcion);
 
 -- ============================
 -- PROGRAMACION_INSTALACIONES
