@@ -12,7 +12,7 @@ class CatalogosRepo:
     def list_medios_pagos(self) -> list[dict]:
         with self.conn.cursor() as cur:
             cur.execute(
-                "SELECT medio_pago_id, descripcion FROM medios_pagos ORDER BY medio_pago_id"
+                "SELECT medio_pago_id, descripcion_mpagos FROM medios_pagos ORDER BY medio_pago_id"
             )
             return [{"id": r[0], "descripcion": r[1]} for r in cur.fetchall()]
 

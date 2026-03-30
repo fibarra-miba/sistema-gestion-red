@@ -69,3 +69,15 @@ class ContractTerminate(BaseModel):
 
 class ContractChangePlan(BaseModel):
     new_plan_id: int = Field(..., ge=1)
+
+class ContractConfirmTechnicalCondition(BaseModel):
+    apto: bool
+    fecha_programacion_pinstalacion: Optional[datetime] = None
+    tecnico_pinstalacion: Optional[str] = Field(default=None, max_length=50)
+    notas_pinstalacion: Optional[str] = Field(default=None, max_length=500)
+
+
+class ContractConfirmTechnicalConditionResponse(BaseModel):
+    contrato_id: int
+    estado_contrato_id: int
+    programacion_id: Optional[int] = None

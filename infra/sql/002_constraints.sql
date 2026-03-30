@@ -229,7 +229,7 @@ ALTER TABLE pagos_comprobantes
 -- ============================
 ALTER TABLE medios_pagos
   ADD CONSTRAINT uq_medios_pagos_descripcion
-  UNIQUE (descripcion);
+  UNIQUE (descripcion_mpagos);
 
 -- ============================
 -- PROGRAMACION_INSTALACIONES
@@ -240,14 +240,22 @@ ALTER TABLE programacion_instalaciones
   REFERENCES domicilios(domicilio_id);
 
 ALTER TABLE programacion_instalaciones
-  ADD CONSTRAINT fk_pinstalacion_plan
-  FOREIGN KEY (plan_id)
-  REFERENCES planes(plan_id);
+  ADD CONSTRAINT fk_pinstalacion_contrato
+  FOREIGN KEY (contrato_id)
+  REFERENCES contratos(contrato_id);
 
 ALTER TABLE programacion_instalaciones
   ADD CONSTRAINT fk_pinstalacion_estado
   FOREIGN KEY (estado_programacion_id)
   REFERENCES estado_programacion(estado_programacion_id);
+
+-- ============================
+-- REPROGRAMACION_INSTALACIONES
+-- ============================
+ALTER TABLE reprogramacion_instalaciones
+  ADD CONSTRAINT fk_pinst_reprog_programacion
+  FOREIGN KEY (programacion_id)
+  REFERENCES programacion_instalaciones(programacion_id);
 
 -- ============================
 -- INSTALACIONES
@@ -256,6 +264,11 @@ ALTER TABLE instalaciones
   ADD CONSTRAINT fk_instalacion_programacion
   FOREIGN KEY (programacion_id)
   REFERENCES programacion_instalaciones(programacion_id);
+  
+ALTER TABLE instalaciones
+  ADD CONSTRAINT fk_instalaciones_contrato
+  FOREIGN KEY (contrato_id)
+  REFERENCES contratos(contrato_id);
 
 ALTER TABLE instalaciones
   ADD CONSTRAINT fk_instalacion_domicilios
@@ -266,6 +279,10 @@ ALTER TABLE instalaciones
   ADD CONSTRAINT fk_instalacion_estado
   FOREIGN KEY (estado_instalacion_id)
   REFERENCES estado_instalacion(estado_instalacion_id);
+  
+ALTER TABLE instalaciones
+  ADD CONSTRAINT uq_instalacion_programacion
+  UNIQUE (programacion_id);
 
 -- ============================
 -- DETALLE_INSTALACION
@@ -279,6 +296,10 @@ ALTER TABLE detalle_instalacion
   ADD CONSTRAINT fk_dinstalacion_producto
   FOREIGN KEY (producto_id)
   REFERENCES productos(producto_id);
+  
+ALTER TABLE detalle_instalacion
+  ADD CONSTRAINT chk_cantidad_dinstalacion
+  CHECK (cantidad_dinstalacion > 0);
 
 -- ============================
 -- GARANTIA
@@ -306,6 +327,13 @@ ALTER TABLE garantia
 ALTER TABLE garantia
   ADD CONSTRAINT uq_garantia_instalacion_producto
   UNIQUE (instalacion_id, producto_id);
+  
+ALTER TABLE garantia
+  ADD CONSTRAINT chk_garantia_fechas
+  CHECK (
+    fecha_fin_garantia IS NULL
+    OR fecha_fin_garantia >= fecha_inicio_garantia
+  );
 
 -- ============================
 -- PRODUCTOS

@@ -8,6 +8,7 @@ from typing import List
 import psycopg
 
 from app.repositories.contratos_repo import ContractRepository
+from app.repositories.instalaciones_repo import InstalacionesRepository
 
 
 class ContractService:
@@ -19,8 +20,13 @@ class ContractService:
     BAJA = 5
     CANCELADO = 6
 
-    def __init__(self, repo: ContractRepository):
+    def __init__(
+        self,
+        repo: ContractRepository,
+        instalaciones_repo: InstalacionesRepository | None = None,
+    ):
         self.repo = repo
+        self.instalaciones_repo = instalaciones_repo
 
     # ==========================================================
     # CREATE
@@ -139,3 +145,60 @@ class ContractService:
             estado_contrato_id=self.BORRADOR,
         )
         return nuevo
+    
+    def confirmar_condicion_tecnica(
+        self,
+        contrato_id: int,
+        apto: bool,
+        fecha_programacion_pinstalacion: datetime | None = None,
+        tecnico_pinstalacion: str | None = None,
+        notas_pinstalacion: str | None = None,
+    ) -> dict:
+        if self.instalaciones_repo is None:
+            raise ValueError("InstalacionesRepository no configurado en ContractService.")
+
+        contrato = self.repo.get_by_id_for_update(contrato_id)
+        if not contrato:
+            raise ValueError("Contrato no encontrado.")
+
+        if contrato["estado_contrato_id"] != self.BORRADOR:
+            raise ValueError("Solo contratos en BORRADOR pueden confirmar condición técnica.")
+
+        if apto:
+            self._validar_no_solapamiento_activo_mismo_domicilio(contrato)
+            try:
+                self.repo.update_estado_only(contrato_id, self.ACTIVO)
+            except psycopg.errors.ExclusionViolation:
+                raise ValueError("Ya existe un contrato ACTIVO vigente para ese domicilio.")
+
+            return {
+                "contrato_id": contrato_id,
+                "estado_contrato_id": self.ACTIVO,
+                "programacion_id": None,
+            }
+
+        if fecha_programacion_pinstalacion is None:
+            raise ValueError(
+                "Debe informar fecha_programacion_pinstalacion cuando requiere instalación."
+            )
+
+        estado_programacion_id = self.instalaciones_repo.get_estado_programacion_id("PROGRAMADA")
+        if estado_programacion_id is None:
+            raise ValueError("No existe el estado de programación 'PROGRAMADA'.")
+
+        self.repo.update_estado_only(contrato_id, self.PENDIENTE_INSTALACION)
+
+        programacion = self.instalaciones_repo.create_programacion(
+            contrato_id=int(contrato["contrato_id"]),
+            domicilio_id=int(contrato["domicilio_id"]),
+            fecha_programacion_pinstalacion=fecha_programacion_pinstalacion,
+            estado_programacion_id=estado_programacion_id,
+            tecnico_pinstalacion=tecnico_pinstalacion,
+            notas_pinstalacion=notas_pinstalacion,
+        )
+
+        return {
+            "contrato_id": contrato_id,
+            "estado_contrato_id": self.PENDIENTE_INSTALACION,
+            "programacion_id": int(programacion["programacion_id"]),
+        }

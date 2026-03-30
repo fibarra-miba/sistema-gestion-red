@@ -7,15 +7,15 @@
 -- ESTADOS BÁSICOS
 -- ============================
 
-INSERT INTO estado_cliente (descripcion) VALUES
+INSERT INTO estado_cliente (descripcion_ecliente) VALUES
   ('ACTIVO'),
   ('INACTIVO');
 
-INSERT INTO estado_plan (descripcion) VALUES
+INSERT INTO estado_plan (descripcion_eplan) VALUES
   ('ACTIVO'),
   ('INACTIVO');
 
-INSERT INTO estado_contrato (descripcion) VALUES
+INSERT INTO estado_contrato (descripcion_econtrato) VALUES
   ('BORRADOR'),
   ('PENDIENTE_INSTALACION'),
   ('ACTIVO'),
@@ -31,6 +31,22 @@ INSERT INTO estado_cuenta (descripcion_ecuenta) VALUES
   ('AL DIA'),
   ('DEUDOR'),
   ('SUSPENDIDA');
+  
+INSERT INTO estado_programacion (descripcion_eprogramacion) VALUES
+  ('PENDIENTE'),
+  ('PROGRAMADA'),
+  ('COMPLETADA');
+
+INSERT INTO estado_instalacion (descripcion_einstalacion) VALUES
+  ('PENDIENTE'),
+  ('COMPLETADA'),
+  ('CANCELADA'),
+  ('FALLIDA');
+
+INSERT INTO estado_garantia (descripcion_egarantia) VALUES
+  ('ACTIVA'),
+  ('VENCIDA'),
+  ('ANULADA');
 
 -- ============================
 -- CATÁLOGOS MÓDULO PAGOS
@@ -48,7 +64,7 @@ INSERT INTO tipo_pago (descripcion_tpago) VALUES
   ('PAGO_CLIENTE'),
   ('AJUSTE_MANUAL');
 
-INSERT INTO medios_pagos (descripcion) VALUES
+INSERT INTO medios_pagos (descripcion_mpagos) VALUES
   ('EFECTIVO'),
   ('TRANSFERENCIA'),
   ('TARJETA');
@@ -299,4 +315,139 @@ INSERT INTO contratos (
   FALSE,
   NULL,
   3  -- ACTIVO
+);
+
+-- ============================
+-- PROGRAMACION INSTALACION
+-- ============================
+
+INSERT INTO programacion_instalaciones (
+  domicilio_id,
+  contrato_id,
+  fecha_programacion_pinstalacion,
+  estado_programacion_id,
+  tecnico_pinstalacion,
+  notas_pinstalacion
+)
+VALUES (
+  (SELECT domicilio_id FROM domicilios WHERE cliente_id = 1 ORDER BY domicilio_id ASC LIMIT 1),
+  (SELECT contrato_id FROM contratos WHERE cliente_id = 1 ORDER BY contrato_id ASC LIMIT 1),
+  NOW() + INTERVAL '2 days',
+  (SELECT estado_programacion_id FROM estado_programacion WHERE descripcion_eprogramacion = 'PROGRAMADA' LIMIT 1),
+  'Tecnico Test',
+  'Instalación inicial programada'
+);
+
+-- ============================
+-- REPROGRAMACION
+-- ============================
+
+INSERT INTO reprogramacion_instalaciones (
+  programacion_id,
+  fecha_reprogramada_anterior,
+  fecha_reprogramada_nueva,
+  tecnico_reprogramacion,
+  motivo_reprogramacion,
+  notas_reprogramacion
+)
+VALUES (
+  (SELECT programacion_id FROM programacion_instalaciones ORDER BY programacion_id ASC LIMIT 1),
+  NOW() + INTERVAL '2 days',
+  NOW() + INTERVAL '3 days',
+  'Tecnico Test',
+  'Cliente no disponible',
+  'Se reprograma para el día siguiente'
+);
+
+-- ============================
+-- INSTALACION
+-- ============================
+
+INSERT INTO instalaciones (
+  programacion_id,
+  contrato_id,
+  domicilio_id,
+  codigo_instalacion,
+  fecha_instalacion,
+  estado_instalacion_id,
+  observacion_instalacion
+)
+VALUES (
+  (SELECT programacion_id FROM programacion_instalaciones ORDER BY programacion_id ASC LIMIT 1),
+  (SELECT contrato_id FROM contratos WHERE cliente_id = 1 ORDER BY contrato_id ASC LIMIT 1),
+  (SELECT domicilio_id FROM domicilios WHERE cliente_id = 1 ORDER BY domicilio_id ASC LIMIT 1),
+  'INST-0001',
+  NOW(),
+  (SELECT estado_instalacion_id FROM estado_instalacion WHERE descripcion_einstalacion = 'COMPLETADA' LIMIT 1),
+  'Instalación completada correctamente'
+);
+
+-- ============================
+-- PRODUCTO BASE (para detalle)
+-- ============================
+
+INSERT INTO tipo_producto (codigo_tproducto, descripcion_tproducto, activo_tproducto)
+VALUES ('SERVICIO', 'Producto servicio', TRUE);
+
+INSERT INTO productos (
+  nombre_producto,
+  descripcion_producto,
+  marca_producto,
+  modelo_producto,
+  activo_producto,
+  tipo_producto_id
+)
+VALUES (
+  'Cable UTP',
+  'Cable de red',
+  'Genérico',
+  'CAT6',
+  TRUE,
+  (SELECT tipo_producto_id FROM tipo_producto WHERE codigo_tproducto = 'SERVICIO' LIMIT 1)
+);
+
+-- ============================
+-- DETALLE INSTALACION
+-- ============================
+
+INSERT INTO detalle_instalacion (
+  instalacion_id,
+  producto_id,
+  descripcion_dinstalacion,
+  cantidad_dinstalacion,
+  unidad_dinstalacion,
+  observacion_dinstalacion
+)
+VALUES (
+  (SELECT instalacion_id FROM instalaciones ORDER BY instalacion_id ASC LIMIT 1),
+  (SELECT producto_id FROM productos ORDER BY producto_id ASC LIMIT 1),
+  'Cableado',
+  20,
+  'metros',
+  'Cableado interno'
+);
+
+-- ============================
+-- GARANTIA
+-- ============================
+
+INSERT INTO garantia (
+  instalacion_id,
+  contrato_id,
+  producto_id,
+  fecha_inicio_garantia,
+  fecha_fin_garantia,
+  estado_garantia_id,
+  motivo_garantia,
+  resolucion_garantia
+)
+VALUES (
+  (SELECT instalacion_id FROM instalaciones ORDER BY instalacion_id ASC LIMIT 1),
+  (SELECT contrato_id FROM contratos WHERE cliente_id = 1 ORDER BY contrato_id ASC LIMIT 1),
+  (SELECT producto_id FROM productos ORDER BY producto_id ASC LIMIT 1),
+  NOW(),
+  NOW() + INTERVAL '6 months',
+  (SELECT estado_garantia_id FROM estado_garantia WHERE descripcion_egarantia = 'ACTIVA' LIMIT 1),
+  'Garantía por instalación',
+  NULL
 );

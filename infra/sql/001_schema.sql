@@ -5,73 +5,73 @@
 -- 1. CATÁLOGOS / TABLAS DE ESTADO
 -- ======================================================
 CREATE TABLE IF NOT EXISTS estado_cliente (
-  estado_cliente_id BIGSERIAL PRIMARY KEY,
-  descripcion       VARCHAR(100) NOT NULL
+  estado_cliente_id 		BIGSERIAL PRIMARY KEY,
+  descripcion_ecliente		VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS estado_instalacion (
-  estado_instalacion_id BIGSERIAL PRIMARY KEY,
-  descripcion           VARCHAR(100) NOT NULL
+  estado_instalacion_id 		BIGSERIAL PRIMARY KEY,
+  descripcion_einstalacion		VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS estado_plan (
-  estado_plan_id BIGSERIAL PRIMARY KEY,
-  descripcion    VARCHAR(100) NOT NULL
+  estado_plan_id 	BIGSERIAL PRIMARY KEY,
+  descripcion_eplan    	VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS estado_contrato (
   estado_contrato_id BIGSERIAL PRIMARY KEY,
-  descripcion        VARCHAR(100) NOT NULL
+  descripcion_econtrato        VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS estado_garantia (
   estado_garantia_id 	BIGSERIAL PRIMARY KEY,
-  descripcion_egarantia	VARCHAR(100)
+  descripcion_egarantia	VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS estado_proveedor (
   estado_proveedor_id 	BIGSERIAL PRIMARY KEY,
-  descripcion_eprov 	VARCHAR(100)
+  descripcion_eprov 	VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS estado_facturas_ventas (
   estado_fact_venta_id 	BIGSERIAL PRIMARY KEY,
-  descripcion_efventa 	VARCHAR(100)
+  descripcion_efventa 	VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS estado_detalle_facturas_ventas (
   estado_det_fact_ventas_id 	BIGSERIAL PRIMARY KEY,
-  descripcion_dfventas 		VARCHAR(100)
+  descripcion_dfventas 		VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS estado_cuenta (
   estado_cuenta_id 	BIGSERIAL PRIMARY KEY,
-  descripcion_ecuenta	VARCHAR(100)
+  descripcion_ecuenta	VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS estado_programacion (
   estado_programacion_id 	BIGSERIAL PRIMARY KEY,
-  descripcion_eprogramacion	VARCHAR(100)
+  descripcion_eprogramacion	VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS estado_domicilio (
   estado_domicilio_id		BIGSERIAL PRIMARY KEY,
-  descripcion_edomicilio	VARCHAR(20)
+  descripcion_edomicilio	VARCHAR(20) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS estado_pago (
   estado_pago_id	BIGSERIAL PRIMARY KEY,
-  descripcion_epago	VARCHAR(20)
+  descripcion_epago	VARCHAR(20) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS tipo_pago (
   tipo_pago_id		BIGSERIAL PRIMARY KEY,
-  descripcion_tpago	VARCHAR(15)
+  descripcion_tpago	VARCHAR(15) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS tipo_promocion (
   tipo_promo_id		BIGSERIAL PRIMARY KEY,
-  descripcion_tpromo	VARCHAR(30)
+  descripcion_tpromo	VARCHAR(30) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS tipo_movimiento_stock (
@@ -80,8 +80,8 @@ CREATE TABLE IF NOT EXISTS tipo_movimiento_stock (
 );
 
 CREATE TABLE IF NOT EXISTS medios_pagos (
-  medio_pago_id	BIGSERIAL PRIMARY KEY,
-  descripcion	VARCHAR(20) NOT NULL
+  medio_pago_id		BIGSERIAL PRIMARY KEY,
+  descripcion_mpagos	VARCHAR(20) NOT NULL
 );
 
 
@@ -193,35 +193,48 @@ CREATE TABLE IF NOT EXISTS planes (
 -- 4. INSTALACIONES Y GARANTÍAS
 -- ======================================================
 CREATE TABLE IF NOT EXISTS instalaciones (
-  instalacion_id 	BIGSERIAL PRIMARY KEY,
-  programacion_id	BIGINT NOT NULL,
-  domicilio_id		BIGINT NOT NULL,
-  codigo_instalacion	VARCHAR(20),
-  fecha_instalacion 	TIMESTAMPTZ,
-  estado_instalacion_id BIGINT NOT NULL,
-  motivo_instalacion 	VARCHAR(200)
+  instalacion_id 			BIGSERIAL PRIMARY KEY,
+  programacion_id			BIGINT NOT NULL,
+  contrato_id				BIGINT NOT NULL,
+  domicilio_id				BIGINT NOT NULL,
+  codigo_instalacion			VARCHAR(20),
+  fecha_instalacion 			TIMESTAMPTZ NOT NULL,
+  estado_instalacion_id		 	BIGINT NOT NULL,
+  observacion_instalacion		VARCHAR(500),
+  fecha_creacion_instalacion		TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS programacion_instalaciones (
-  programacion_id        	BIGSERIAL PRIMARY KEY,
-  domicilio_id           	BIGINT NOT NULL,
-  plan_id                	BIGINT NOT NULL,
-  fecha_solicitud_pinstalacion  TIMESTAMPTZ NOT NULL,
-  estado_programacion_id 	BIGINT NOT NULL,
-  tecnico_pinstalacion          VARCHAR(50),
-  notas_pinstalacion            VARCHAR(100),
-  fecha_creacion_pinstalacion   TIMESTAMPTZ DEFAULT now()
+  programacion_id			BIGSERIAL PRIMARY KEY,
+  domicilio_id				BIGINT NOT NULL,
+  contrato_id				BIGINT NOT NULL,
+  fecha_programacion_pinstalacion	TIMESTAMPTZ NOT NULL,
+  estado_programacion_id		BIGINT NOT NULL,
+  tecnico_pinstalacion			VARCHAR(50),
+  notas_pinstalacion			VARCHAR(500),
+  fecha_creacion_pinstalacion		TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS reprogramacion_instalaciones (
+  reprogramacion_id			BIGSERIAL PRIMARY KEY,
+  programacion_id			BIGINT NOT NULL,
+  fecha_reprogramada_anterior		TIMESTAMPTZ,
+  fecha_reprogramada_nueva		TIMESTAMPTZ NOT NULL,
+  tecnico_reprogramacion		VARCHAR(50),
+  motivo_reprogramacion			VARCHAR(500),
+  notas_reprogramacion			VARCHAR(500),
+  fecha_creacion_reprogramacion		TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS detalle_instalacion (
-  det_instalacion_id 		BIGSERIAL PRIMARY KEY,
-  instalacion_id     		BIGINT NOT NULL,
-  producto_id        		BIGINT NOT NULL,
-  descripcion_item   		VARCHAR(150),
-  cantidad_dinstalacion         NUMERIC(10,2) NOT NULL,
-  unidad_dinstalacion           VARCHAR(10) NOT NULL,
-  observacion_dinstalacion      VARCHAR(200),
-  fecha_creacion_dinstalacion	TIMESTAMPTZ NOT NULL DEFAULT now()
+  det_instalacion_id 			BIGSERIAL PRIMARY KEY,
+  instalacion_id     			BIGINT NOT NULL,
+  producto_id        			BIGINT NOT NULL,
+  descripcion_dinstalacion   		VARCHAR(150),
+  cantidad_dinstalacion         	NUMERIC(10,2) NOT NULL,
+  unidad_dinstalacion           	VARCHAR(10) NOT NULL,
+  observacion_dinstalacion      	VARCHAR(200),
+  fecha_creacion_dinstalacion		TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS garantia (
@@ -260,10 +273,10 @@ CREATE TABLE IF NOT EXISTS producto_kit_detalle (
 );
 
 CREATE TABLE IF NOT EXISTS tipo_producto (
-  tipo_producto_id	BIGSERIAL PRIMARY KEY,
-  codigo		VARCHAR(20) NOT NULL,
-  descripcion		VARCHAR(100) NOT NULL,
-  activo		BOOLEAN NOT NULL DEFAULT TRUE
+  tipo_producto_id		BIGSERIAL PRIMARY KEY,
+  codigo_tproducto		VARCHAR(20) NOT NULL,
+  descripcion_tproducto		VARCHAR(100) NOT NULL,
+  activo_tproducto		BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 CREATE TABLE IF NOT EXISTS productos (

@@ -5,13 +5,16 @@ from psycopg import Connection
 
 from app.db import get_db
 from app.repositories.contratos_repo import ContractRepository
+from app.repositories.instalaciones_repo import InstalacionesRepository
 from app.services.contratos_service import ContractService
 from app.schemas.contrato import (
     ContractCreate,
     ContractResponse,
     ContractListResponse,
     ContractChangePlan,
+    ContractConfirmTechnicalCondition
 )
+
 
 router = APIRouter(prefix="/contratos", tags=["Contratos"])
 
@@ -127,5 +130,24 @@ def change_plan(
         # Posicional para evitar mismatch de keywords
         new_contract = service.change_plan(contract_id, payload.new_plan_id)
         return new_contract
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@router.post("/{contrato_id}/confirmar-condicion-tecnica")
+def confirmar_condicion_tecnica(
+    contrato_id: int,
+    payload: ContractConfirmTechnicalCondition,
+    conn=Depends(get_db),
+):
+    try:
+        repo = ContractRepository(conn)
+        instalaciones_repo = InstalacionesRepository(conn)
+        service = ContractService(repo, instalaciones_repo)
+
+        return service.confirmar_condicion_tecnica(
+            contrato_id=contrato_id,
+            **payload.model_dump(),
+        )
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

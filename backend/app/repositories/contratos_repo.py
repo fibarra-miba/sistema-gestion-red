@@ -208,3 +208,27 @@ class ContractRepository:
                 }
             )
         return out
+    
+    def get_by_id_for_update(self, contrato_id: int) -> Optional[dict]:
+        query = """
+            SELECT *
+            FROM contratos
+            WHERE contrato_id = %s
+            FOR UPDATE
+        """
+        with self.conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(query, (contrato_id,))
+            return cur.fetchone()
+
+    def update_estado_only(
+        self,
+        contrato_id: int,
+        estado_contrato_id: int,
+    ) -> None:
+        query = """
+            UPDATE contratos
+               SET estado_contrato_id = %s
+             WHERE contrato_id = %s
+        """
+        with self.conn.cursor() as cur:
+            cur.execute(query, (estado_contrato_id, contrato_id))
