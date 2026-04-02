@@ -177,7 +177,7 @@ INSERT INTO clientes (
   'Testing',
   '12345678',
   '3870000000',
-  'cliente.testing@red.local',
+  'cliente.testing@red.com',
   NOW(),
   1,
   'Seed testing contratos (cliente 1)'
@@ -256,7 +256,7 @@ INSERT INTO clientes (
   'PagosSeed',
   '87654321',
   '3871111111',
-  'cliente.pagos@red.local',
+  'cliente.pagos@red.com',
   NOW(),
   1,
   'Seed testing pagos (cliente 2)'
