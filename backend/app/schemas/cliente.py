@@ -28,3 +28,10 @@ class ClienteCreate(BaseModel):
     estado_cliente_id: int = Field(..., ge=1)
     observaciones: Optional[str] = Field(None, max_length=100)
 
+class ClienteUpdate(BaseModel):
+    nombre: str = Field(..., min_length=1, max_length=50)
+    apellido: str = Field(..., min_length=1, max_length=50)
+    dni: str = Field(..., min_length=5, max_length=20)
+    telefono: str = Field(..., min_length=5, max_length=20)
+    email: Optional[EmailStr] = None
+    observaciones: Optional[str] = Field(None, max_length=100)

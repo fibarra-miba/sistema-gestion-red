@@ -1,6 +1,6 @@
 import psycopg
 from psycopg.errors import UniqueViolation
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from app.repositories import (
     clientes_repo,
@@ -12,8 +12,13 @@ from app.repositories import (
 class ClienteService:
 
     @staticmethod
-    def listar(conn: psycopg.Connection, limit: int, offset: int):
-        return clientes_repo.list_clientes(conn, limit, offset)
+    def listar(
+        conn: psycopg.Connection,
+        limit: int,
+        offset: int,
+        search: Optional[str] = None
+    ):
+        return clientes_repo.list_clientes(conn, limit, offset, search)
 
     @staticmethod
     def obtener(conn: psycopg.Connection, cliente_id: int):
@@ -42,6 +47,31 @@ class ClienteService:
 
         try:
             return clientes_repo.create_cliente(conn, data_repo)
+        except UniqueViolation:
+            raise
+
+    @staticmethod
+    def actualizar_cliente(
+        conn: psycopg.Connection,
+        cliente_id: int,
+        data: Dict[str, Any]
+    ):
+        cliente = clientes_repo.get_cliente_by_id(conn, cliente_id)
+        if not cliente:
+            raise ValueError("CLIENTE_NOT_FOUND")
+
+        data_repo = {
+            "nombre_cliente": data.get("nombre"),
+            "apellido_cliente": data.get("apellido"),
+            "dni_cliente": data.get("dni"),
+            "telefono_cliente": data.get("telefono"),
+            "email_cliente": data.get("email"),
+            "observacion_cliente": data.get("observaciones"),
+        }
+
+        try:
+            updated = clientes_repo.update_cliente(conn, cliente_id, data_repo)
+            return updated
         except UniqueViolation:
             raise
 
@@ -85,15 +115,12 @@ class ClienteService:
 
         domicilio_payload = payload["domicilio"]
 
-        # Compat: tests envían "estado_domicilio" (payload), DB exige "estado_domicilio_id"
         if domicilio_payload.get("estado_domicilio_id") is None and domicilio_payload.get("estado_domicilio") is not None:
             domicilio_payload["estado_domicilio_id"] = domicilio_payload["estado_domicilio"]
 
-        # Default razonable para onboarding: VIGENTE = 1 (según seed)
         if domicilio_payload.get("estado_domicilio_id") is None:
             domicilio_payload["estado_domicilio_id"] = 1
 
-        # Para onboarding de cliente nuevo no hay vigentes, pero es seguro y deja el flujo consistente
         domicilios_repo.close_domicilios_vigentes(
             conn,
             cliente_id=cliente_id,
@@ -102,9 +129,8 @@ class ClienteService:
 
         domicilios_repo.create_domicilio(conn, cliente_id, domicilio_payload)
 
-        # Cuenta: create minimal (saldo 0, estado según payload)
         estado_cuenta_id = payload["cuenta"]["estado_cuenta_id"]
-        self_check = estado_cuenta_id  # para que quede claro que se usa el valor (sin mutar payload)
+        self_check = estado_cuenta_id
         ClienteService._create_cuenta_minimal(conn, cliente_id, self_check)
 
         return cliente

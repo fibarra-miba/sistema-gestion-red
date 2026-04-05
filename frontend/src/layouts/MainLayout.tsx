@@ -1,66 +1,46 @@
-import { Outlet, Link } from "react-router-dom";
-import {
-  AppBar,
-  Toolbar,
-  Typography,
-  Drawer,
-  List,
-  ListItemButton,
-  ListItemText,
-  Box,
-} from "@mui/material";
-
-const drawerWidth = 220;
+import { Box, Toolbar } from "@mui/material";
+import { Outlet } from "react-router-dom";
+import { useState } from "react";
+import Sidebar, { sidebarWidth } from "./Sidebar";
+import Topbar from "./Topbar";
 
 const MainLayout = () => {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
-    <Box sx={{ display: "flex" }}>
-      
-      {/* TOPBAR */}
-      <AppBar position="fixed" sx={{ zIndex: 1201 }}>
-        <Toolbar>
-          <Typography variant="h6" noWrap>
-            Sistema RED 🚀
-          </Typography>
-        </Toolbar>
-      </AppBar>
+    <Box
+      sx={{
+        display: "flex",
+        minHeight: "100vh", // 🔥 permite crecer correctamente
+        bgcolor: "background.default",
+      }}
+    >
+      <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
 
-      {/* SIDEBAR */}
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: drawerWidth,
-          flexShrink: 0,
-          [`& .MuiDrawer-paper`]: {
-            width: drawerWidth,
-            boxSizing: "border-box",
-          },
-        }}
-      >
-        <Toolbar /> {/* espacio debajo del AppBar */}
+      <Topbar onMenuClick={() => setMobileOpen(true)} />
 
-        <List>
-          <ListItemButton component={Link} to="/">
-            <ListItemText primary="Dashboard" />
-          </ListItemButton>
-
-          <ListItemButton component={Link} to="/clientes">
-            <ListItemText primary="Clientes" />
-          </ListItemButton>
-        </List>
-      </Drawer>
-
-      {/* CONTENIDO */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          bgcolor: "#f5f5f5",
-          p: 3,
+          width: { lg: `calc(100% - ${sidebarWidth}px)` },
+          ml: { lg: `${sidebarWidth}px` },
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        <Toolbar /> {/* espacio debajo del AppBar */}
-        <Outlet />
+        {/* 🔥 separador del Topbar */}
+        <Toolbar sx={{ minHeight: 72 }} />
+
+        {/* 🔥 CONTENIDO REAL */}
+        <Box
+          sx={{
+            px: { xs: 2, md: 3, lg: 4 },
+            py: 3,
+          }}
+        >
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   );

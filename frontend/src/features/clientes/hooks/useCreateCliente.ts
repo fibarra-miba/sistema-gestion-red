@@ -6,8 +6,8 @@ export const useCreateCliente = () => {
 
   return useMutation({
     mutationFn: createCliente,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["clientes"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["clientes"] });
     },
   });
 };

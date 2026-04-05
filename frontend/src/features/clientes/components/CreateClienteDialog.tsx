@@ -1,53 +1,90 @@
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
-  Button,
+  IconButton,
   Snackbar,
   Alert,
 } from "@mui/material";
-import { useState } from "react";
+import CloseIcon from "@mui/icons-material/Close";
 import CreateClienteForm from "./CreateClienteForm";
+
+type Cliente = {
+  cliente_id: number;
+  nombre_cliente?: string;
+  apellido_cliente?: string;
+  email_cliente?: string;
+  dni?: string;
+  dni_cliente?: string;
+  telefono?: string;
+  telefono_cliente?: string;
+};
 
 type Props = {
   open: boolean;
   onClose: () => void;
+  cliente?: Cliente | null;
 };
 
-const CreateClienteDialog = ({ open, onClose }: Props) => {
-  const [success, setSuccess] = useState(false);
+export default function CreateClienteDialog({
+  open,
+  onClose,
+  cliente,
+}: Props) {
+  const isEditMode = !!cliente;
+
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setSnackbarOpen(false);
+  }, [open]);
 
   const handleSuccess = () => {
-    setSuccess(true);
+    setSnackbarOpen(true);
     onClose();
   };
 
   return (
     <>
       <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-        <DialogTitle>Nuevo cliente</DialogTitle>
+        <DialogTitle sx={{ pr: 6 }}>
+          {isEditMode ? "Editar cliente" : "Crear cliente"}
 
-        <DialogContent>
-          <CreateClienteForm onSuccess={handleSuccess} />
+          <IconButton
+            onClick={onClose}
+            sx={{ position: "absolute", right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent dividers>
+          <CreateClienteForm
+            cliente={cliente ?? undefined}
+            onSuccess={handleSuccess}
+          />
         </DialogContent>
-
-        <DialogActions>
-          <Button onClick={onClose}>Cancelar</Button>
-        </DialogActions>
       </Dialog>
 
       <Snackbar
-        open={success}
+        open={snackbarOpen}
         autoHideDuration={3000}
-        onClose={() => setSuccess(false)}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
-        <Alert severity="success" variant="filled">
-          Cliente creado correctamente
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity="success"
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {isEditMode
+            ? "Cliente actualizado correctamente"
+            : "Cliente creado correctamente"}
         </Alert>
       </Snackbar>
     </>
   );
-};
-
-export default CreateClienteDialog;
+}
