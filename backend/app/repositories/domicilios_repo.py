@@ -1,7 +1,7 @@
 # app/repositories/domicilios_repo.py
 
 import psycopg
-from typing import Dict, Any
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 
@@ -11,9 +11,8 @@ def close_domicilios_vigentes(
     fecha_hasta_dom: datetime | None = None
 ) -> int:
     """
-    Cierra (pone fecha_hasta_dom) a todos los domicilios vigentes (fecha_hasta_dom IS NULL)
-    de un cliente. Si fecha_hasta_dom viene None => usa now().
-    Devuelve cantidad de filas afectadas.
+    Cierra todos los domicilios vigentes (fecha_hasta_dom IS NULL) del cliente.
+    Si fecha_hasta_dom viene None, usa NOW().
     """
     query = """
         UPDATE domicilios
@@ -56,7 +55,18 @@ def create_domicilio(
             %(fecha_hasta_dom)s,
             %(estado_domicilio_id)s
         )
-        RETURNING domicilio_id;
+        RETURNING
+            domicilio_id,
+            cliente_id,
+            complejo,
+            piso,
+            depto,
+            calle,
+            numero,
+            referencias,
+            fecha_desde_dom,
+            fecha_hasta_dom,
+            estado_domicilio_id;
     """
     with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
         cur.execute(
@@ -74,4 +84,84 @@ def create_domicilio(
                 "estado_domicilio_id": data.get("estado_domicilio_id"),
             }
         )
+        return cur.fetchone()
+
+
+def get_domicilio_vigente_by_cliente(
+    conn: psycopg.Connection,
+    cliente_id: int
+) -> Optional[Dict[str, Any]]:
+    query = """
+        SELECT
+            domicilio_id,
+            cliente_id,
+            complejo,
+            piso,
+            depto,
+            calle,
+            numero,
+            referencias,
+            fecha_desde_dom,
+            fecha_hasta_dom,
+            estado_domicilio_id
+        FROM domicilios
+        WHERE cliente_id = %s
+          AND fecha_hasta_dom IS NULL
+        ORDER BY fecha_desde_dom DESC, domicilio_id DESC
+        LIMIT 1;
+    """
+    with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+        cur.execute(query, (cliente_id,))
+        return cur.fetchone()
+
+
+def list_domicilios_by_cliente(
+    conn: psycopg.Connection,
+    cliente_id: int
+) -> List[Dict[str, Any]]:
+    query = """
+        SELECT
+            domicilio_id,
+            cliente_id,
+            complejo,
+            piso,
+            depto,
+            calle,
+            numero,
+            referencias,
+            fecha_desde_dom,
+            fecha_hasta_dom,
+            estado_domicilio_id
+        FROM domicilios
+        WHERE cliente_id = %s
+        ORDER BY fecha_desde_dom DESC, domicilio_id DESC;
+    """
+    with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+        cur.execute(query, (cliente_id,))
+        return cur.fetchall()
+
+
+def get_domicilio_by_id(
+    conn: psycopg.Connection,
+    domicilio_id: int
+) -> Optional[Dict[str, Any]]:
+    query = """
+        SELECT
+            domicilio_id,
+            cliente_id,
+            complejo,
+            piso,
+            depto,
+            calle,
+            numero,
+            referencias,
+            fecha_desde_dom,
+            fecha_hasta_dom,
+            estado_domicilio_id
+        FROM domicilios
+        WHERE domicilio_id = %s
+        LIMIT 1;
+    """
+    with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+        cur.execute(query, (domicilio_id,))
         return cur.fetchone()
