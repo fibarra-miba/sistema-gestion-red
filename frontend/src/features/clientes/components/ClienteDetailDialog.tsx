@@ -7,7 +7,6 @@ import {
   Button,
   Typography,
   Stack,
-  IconButton,
   Divider,
   CircularProgress,
   Alert,
@@ -67,11 +66,31 @@ export default function ClienteDetailDialog({
   return (
     <>
       <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-        <DialogTitle>Detalle del cliente</DialogTitle>
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1.5,
+            flexWrap: "wrap",
+          }}
+        >
+          <Typography variant="h6" component="span">
+            Detalle del cliente
+          </Typography>
+
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<EditOutlinedIcon />}
+            onClick={onEdit}
+          >
+            Editar cliente
+          </Button>
+        </DialogTitle>
 
         <DialogContent dividers>
           <Stack spacing={2.5}>
-            {/* Datos del Cliente */}
             <Stack spacing={1}>
               <Typography>
                 <b>ID:</b> {cliente.cliente_id}
@@ -96,7 +115,6 @@ export default function ClienteDetailDialog({
 
             <Divider />
 
-            {/* Domicilio Vigente */}
             <Stack spacing={1.5}>
               <Box
                 sx={{
@@ -107,16 +125,15 @@ export default function ClienteDetailDialog({
                   flexWrap: "wrap",
                 }}
               >
-                {/* Título */}
                 <Stack direction="row" spacing={1} alignItems="center">
                   <HomeOutlinedIcon fontSize="small" />
                   <Typography variant="h6">Domicilio vigente</Typography>
+
                   {!domicilioNoEncontrado && !isLoadingDomicilio && (
                     <Chip label="Vigente" color="success" size="small" />
                   )}
                 </Stack>
 
-                {/* Acciones */}
                 <Box
                   sx={{
                     display: "flex",
@@ -128,13 +145,18 @@ export default function ClienteDetailDialog({
                   }}
                 >
                   <Tooltip title="Historial de domicilios" arrow>
-                    <IconButton
+                    <Button
                       size="small"
-                      color="primary"
+                      variant="outlined"
                       onClick={() => setOpenHistory(true)}
+                      sx={{
+                        minWidth: "auto",
+                        px: 1.2,
+                        width: 36,
+                      }}
                     >
-                      <HistoryOutlinedIcon />
-                    </IconButton>
+                      <HistoryOutlinedIcon fontSize="small" />
+                    </Button>
                   </Tooltip>
 
                   <Button
@@ -148,7 +170,6 @@ export default function ClienteDetailDialog({
                 </Box>
               </Box>
 
-              {/* Contenido */}
               {isLoadingDomicilio ? (
                 <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
                   <CircularProgress size={24} />
@@ -189,15 +210,11 @@ export default function ClienteDetailDialog({
           </Stack>
         </DialogContent>
 
-        <DialogActions sx={{ justifyContent: "space-between" }}>
-          <IconButton color="primary" onClick={onEdit}>
-            <EditOutlinedIcon />
-          </IconButton>
+        <DialogActions sx={{ justifyContent: "flex-end" }}>
           <Button onClick={onClose}>Cerrar</Button>
         </DialogActions>
       </Dialog>
 
-      {/* Diálogos */}
       <CreateDomicilioDialog
         open={openCreateDomicilio}
         onClose={() => setOpenCreateDomicilio(false)}
