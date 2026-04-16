@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogTitle,
@@ -18,7 +19,10 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
 import AddLocationAltOutlinedIcon from "@mui/icons-material/AddLocationAltOutlined";
 import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+
 import { useDomicilioVigente } from "../../domicilios/hooks/useDomicilioVigente";
+import { useContratos } from "../../contratos/hooks/useContratos";
 import CreateDomicilioDialog from "../../domicilios/components/CreateDomicilioDialog";
 import DomiciliosHistoryDialog from "../../domicilios/components/DomiciliosHistoryDialog";
 
@@ -46,6 +50,8 @@ export default function ClienteDetailDialog({
   onClose,
   onEdit,
 }: Props) {
+  const navigate = useNavigate();
+
   const [openCreateDomicilio, setOpenCreateDomicilio] = useState(false);
   const [openHistory, setOpenHistory] = useState(false);
 
@@ -58,10 +64,22 @@ export default function ClienteDetailDialog({
     error: domicilioError,
   } = useDomicilioVigente(clienteId);
 
+  const {
+    data: contratos = [],
+    isLoading: isLoadingContratos,
+  } = useContratos(clienteId ? { cliente_id: clienteId } : undefined);
+
   if (!cliente) return null;
 
   const domicilioNoEncontrado =
     isErrorDomicilio && (domicilioError as any)?.response?.status === 404;
+
+  const hasContratos = contratos.length > 0;
+
+  const handleGoToContratos = () => {
+    onClose();
+    navigate(`/contratos?cliente_id=${cliente.cliente_id}`);
+  };
 
   return (
     <>
@@ -204,6 +222,51 @@ export default function ClienteDetailDialog({
               ) : (
                 <Typography color="text.secondary">
                   El cliente no posee un domicilio vigente.
+                </Typography>
+              )}
+            </Stack>
+
+            <Divider />
+
+            <Stack spacing={1.5}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 1.5,
+                  flexWrap: "wrap",
+                }}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <DescriptionOutlinedIcon fontSize="small" />
+                  <Typography variant="h6">Contratos</Typography>
+                </Stack>
+
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<DescriptionOutlinedIcon />}
+                  onClick={handleGoToContratos}
+                  disabled={isLoadingContratos || !hasContratos}
+                >
+                  Ver contratos
+                </Button>
+              </Box>
+
+              {isLoadingContratos ? (
+                <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : hasContratos ? (
+                <Typography color="text.secondary">
+                  El cliente posee {contratos.length} contrato
+                  {contratos.length !== 1 ? "s" : ""} registrado
+                  {contratos.length !== 1 ? "s" : ""}.
+                </Typography>
+              ) : (
+                <Typography color="text.secondary">
+                  El cliente no posee contratos registrados.
                 </Typography>
               )}
             </Stack>

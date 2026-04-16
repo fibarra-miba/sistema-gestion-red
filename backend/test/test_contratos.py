@@ -1,7 +1,4 @@
-# tests/test_contracts.py
-
 import pytest
-from httpx import AsyncClient
 
 
 def _get_domicilio_id_seed(db_conn, cliente_id: int) -> int:
@@ -20,10 +17,6 @@ def _get_domicilio_id_seed(db_conn, cliente_id: int) -> int:
         assert row is not None, f"No existe domicilio seed para cliente_id={cliente_id}"
         return int(row[0])
 
-
-# ==========================================================
-# CREATE CONTRACT
-# ==========================================================
 
 @pytest.mark.anyio
 async def test_create_contract(client, db_conn):
@@ -46,10 +39,6 @@ async def test_create_contract(client, db_conn):
     assert data["estado_contrato_id"] == 1  # BORRADOR
 
 
-# ==========================================================
-# ACTIVATE CONTRACT
-# ==========================================================
-
 @pytest.mark.anyio
 async def test_activate_contract(client, db_conn):
     domicilio_id = _get_domicilio_id_seed(db_conn, 1)
@@ -68,15 +57,10 @@ async def test_activate_contract(client, db_conn):
     assert response.status_code == 200, response.text
 
 
-# ==========================================================
-# NO DOUBLE ACTIVE
-# ==========================================================
-
 @pytest.mark.anyio
 async def test_no_double_active_contract(client, db_conn):
     domicilio_id = _get_domicilio_id_seed(db_conn, 1)
 
-    # Primer contrato
     r1 = await client.post(
         "/contratos",
         json={"cliente_id": 1, "domicilio_id": domicilio_id, "plan_id": 1},
@@ -87,7 +71,6 @@ async def test_no_double_active_contract(client, db_conn):
     r1a = await client.post(f"/contratos/{id1}/activate")
     assert r1a.status_code == 200, r1a.text
 
-    # Segundo contrato, mismo domicilio
     r2 = await client.post(
         "/contratos",
         json={"cliente_id": 1, "domicilio_id": domicilio_id, "plan_id": 1},
@@ -95,15 +78,10 @@ async def test_no_double_active_contract(client, db_conn):
     assert r2.status_code == 200, r2.text
     id2 = r2.json()["contrato_id"]
 
-    # Intentar activar segundo => debe fallar por mismo domicilio activo/vigente
     response = await client.post(f"/contratos/{id2}/activate")
 
     assert response.status_code == 400, response.text
 
-
-# ==========================================================
-# SUSPEND CONTRACT
-# ==========================================================
 
 @pytest.mark.anyio
 async def test_suspend_contract(client, db_conn):
@@ -123,10 +101,6 @@ async def test_suspend_contract(client, db_conn):
 
     assert response.status_code == 200, response.text
 
-
-# ==========================================================
-# RESUME CONTRACT
-# ==========================================================
 
 @pytest.mark.anyio
 async def test_resume_contract(client, db_conn):
@@ -150,10 +124,6 @@ async def test_resume_contract(client, db_conn):
     assert response.status_code == 200, response.text
 
 
-# ==========================================================
-# CANCEL CONTRACT
-# ==========================================================
-
 @pytest.mark.anyio
 async def test_cancel_contract(client, db_conn):
     domicilio_id = _get_domicilio_id_seed(db_conn, 1)
@@ -169,10 +139,6 @@ async def test_cancel_contract(client, db_conn):
 
     assert response.status_code == 200, response.text
 
-
-# ==========================================================
-# TERMINATE CONTRACT
-# ==========================================================
 
 @pytest.mark.anyio
 async def test_terminate_contract(client, db_conn):
@@ -192,10 +158,6 @@ async def test_terminate_contract(client, db_conn):
 
     assert response.status_code == 200, response.text
 
-
-# ==========================================================
-# CHANGE PLAN
-# ==========================================================
 
 @pytest.mark.anyio
 async def test_change_plan(client, db_conn):
@@ -221,3 +183,103 @@ async def test_change_plan(client, db_conn):
 
     assert new_contract["plan_id"] == 2
     assert new_contract["domicilio_id"] == domicilio_id
+
+
+@pytest.mark.anyio
+async def test_list_contracts_global(client):
+    response = await client.get("/contratos")
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+
+    assert "items" in data
+    assert len(data["items"]) >= 2
+    assert "cliente_nombre" in data["items"][0]
+    assert "plan_nombre" in data["items"][0]
+    assert "estado_contrato_descripcion" in data["items"][0]
+
+
+@pytest.mark.anyio
+async def test_list_contracts_filtered_by_cliente(client):
+    response = await client.get("/contratos", params={"cliente_id": 1})
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+
+    assert len(data["items"]) >= 1
+    assert all(item["cliente_id"] == 1 for item in data["items"])
+
+
+@pytest.mark.anyio
+async def test_create_contract_fails_if_domicilio_not_belongs_to_cliente(client, db_conn):
+    domicilio_id_cliente_2 = _get_domicilio_id_seed(db_conn, 2)
+
+    response = await client.post(
+        "/contratos",
+        json={
+            "cliente_id": 1,
+            "domicilio_id": domicilio_id_cliente_2,
+            "plan_id": 1,
+        },
+    )
+
+    assert response.status_code == 400, response.text
+    assert response.json()["detail"] == "El domicilio no pertenece al cliente informado."
+
+
+@pytest.mark.anyio
+async def test_create_contract_fails_if_plan_inactivo(client, db_conn):
+    with db_conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO planes (nombre_plan, velocidad_mbps_plan, estado_plan_id, descripcion_plan)
+            VALUES ('Plan Inactivo Test', 99, 2, 'Plan inactivo para testing')
+            RETURNING plan_id
+            """
+        )
+        row = cur.fetchone()
+        assert row is not None
+        plan_id_inactivo = int(row[0])
+
+    db_conn.commit()
+
+    domicilio_id = _get_domicilio_id_seed(db_conn, 1)
+
+    response = await client.post(
+        "/contratos",
+        json={
+            "cliente_id": 1,
+            "domicilio_id": domicilio_id,
+            "plan_id": plan_id_inactivo,
+        },
+    )
+
+    assert response.status_code == 400, response.text
+    assert response.json()["detail"] == "El plan informado no está activo."
+
+
+@pytest.mark.anyio
+async def test_get_contract_detail_commercial(client, db_conn):
+    domicilio_id = _get_domicilio_id_seed(db_conn, 1)
+
+    create_response = await client.post(
+        "/contratos",
+        json={
+            "cliente_id": 1,
+            "domicilio_id": domicilio_id,
+            "plan_id": 1,
+        },
+    )
+    assert create_response.status_code == 200, create_response.text
+    contrato_id = create_response.json()["contrato_id"]
+
+    response = await client.get(f"/contratos/{contrato_id}")
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+
+    assert data["contrato_id"] == contrato_id
+    assert data["cliente_nombre"] == "Cliente"
+    assert data["cliente_apellido"] in ("Testing", "PagosSeed")
+    assert data["plan_nombre"] == "Plan Básico"
+    assert data["estado_contrato_descripcion"] == "BORRADOR"

@@ -1,3 +1,5 @@
+# project/red-servicio-internet/backend/app/repositories/promociones_repo.py
+
 from __future__ import annotations
 
 from datetime import date

@@ -68,6 +68,151 @@ class ContractRepository:
             cur.execute(query, (cliente_id,))
             return cur.fetchall()
 
+    def get_commercial_by_id(self, contrato_id: int) -> Optional[dict]:
+        query = """
+            SELECT
+                c.contrato_id,
+                c.cliente_id,
+                cl.nombre_cliente AS cliente_nombre,
+                cl.apellido_cliente AS cliente_apellido,
+                c.domicilio_id,
+                TRIM(
+                    CONCAT_WS(
+                        ', ',
+                        NULLIF(
+                            TRIM(
+                                CONCAT_WS(
+                                    ' ',
+                                    d.calle,
+                                    CASE
+                                        WHEN d.numero IS NOT NULL THEN d.numero::text
+                                        ELSE NULL
+                                    END
+                                )
+                            ),
+                            ''
+                        ),
+                        NULLIF(
+                            TRIM(
+                                CONCAT_WS(
+                                    ' ',
+                                    d.complejo,
+                                    CASE
+                                        WHEN d.piso IS NOT NULL THEN CONCAT('Piso ', d.piso::text)
+                                        ELSE NULL
+                                    END,
+                                    d.depto
+                                )
+                            ),
+                            ''
+                        ),
+                        NULLIF(d.referencias, '')
+                    )
+                ) AS domicilio_resumen,
+                c.plan_id,
+                p.nombre_plan AS plan_nombre,
+                c.fecha_inicio_contrato,
+                c.fecha_fin_contrato,
+                c.estado_contrato_id,
+                ec.descripcion_econtrato AS estado_contrato_descripcion,
+                c.aplica_promocion,
+                c.promocion_id
+            FROM contratos c
+            INNER JOIN clientes cl
+                ON cl.cliente_id = c.cliente_id
+            INNER JOIN domicilios d
+                ON d.domicilio_id = c.domicilio_id
+            INNER JOIN planes p
+                ON p.plan_id = c.plan_id
+            INNER JOIN estado_contrato ec
+                ON ec.estado_contrato_id = c.estado_contrato_id
+            WHERE c.contrato_id = %s
+            LIMIT 1
+        """
+        with self.conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(query, (contrato_id,))
+            return cur.fetchone()
+
+    def list_commercial(
+        self,
+        cliente_id: Optional[int] = None,
+        estado_contrato_id: Optional[int] = None,
+        plan_id: Optional[int] = None,
+        domicilio_id: Optional[int] = None,
+    ) -> List[dict]:
+        query = """
+            SELECT
+                c.contrato_id,
+                c.cliente_id,
+                cl.nombre_cliente AS cliente_nombre,
+                cl.apellido_cliente AS cliente_apellido,
+                c.domicilio_id,
+                TRIM(
+                    CONCAT_WS(
+                        ', ',
+                        NULLIF(
+                            TRIM(
+                                CONCAT_WS(
+                                    ' ',
+                                    d.calle,
+                                    CASE
+                                        WHEN d.numero IS NOT NULL THEN d.numero::text
+                                        ELSE NULL
+                                    END
+                                )
+                            ),
+                            ''
+                        ),
+                        NULLIF(
+                            TRIM(
+                                CONCAT_WS(
+                                    ' ',
+                                    d.complejo,
+                                    CASE
+                                        WHEN d.piso IS NOT NULL THEN CONCAT('Piso ', d.piso::text)
+                                        ELSE NULL
+                                    END,
+                                    d.depto
+                                )
+                            ),
+                            ''
+                        ),
+                        NULLIF(d.referencias, '')
+                    )
+                ) AS domicilio_resumen,
+                c.plan_id,
+                p.nombre_plan AS plan_nombre,
+                c.fecha_inicio_contrato,
+                c.fecha_fin_contrato,
+                c.estado_contrato_id,
+                ec.descripcion_econtrato AS estado_contrato_descripcion,
+                c.aplica_promocion,
+                c.promocion_id
+            FROM contratos c
+            INNER JOIN clientes cl
+                ON cl.cliente_id = c.cliente_id
+            INNER JOIN domicilios d
+                ON d.domicilio_id = c.domicilio_id
+            INNER JOIN planes p
+                ON p.plan_id = c.plan_id
+            INNER JOIN estado_contrato ec
+                ON ec.estado_contrato_id = c.estado_contrato_id
+            WHERE (%s::BIGINT IS NULL OR c.cliente_id = %s::BIGINT)
+                AND (%s::BIGINT IS NULL OR c.estado_contrato_id = %s::BIGINT)
+                AND (%s::BIGINT IS NULL OR c.plan_id = %s::BIGINT)
+                AND (%s::BIGINT IS NULL OR c.domicilio_id = %s::BIGINT)
+            ORDER BY c.fecha_inicio_contrato DESC, c.contrato_id DESC
+        """
+        params = (
+            cliente_id, cliente_id,
+            estado_contrato_id, estado_contrato_id,
+            plan_id, plan_id,
+            domicilio_id, domicilio_id,
+        )
+        with self.conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(query, params)
+            return cur.fetchall()
+
     # ==========================================================
     # VALIDACIONES DOMINIO: no solapamiento ACTIVO por domicilio
     # ==========================================================
@@ -208,7 +353,7 @@ class ContractRepository:
                 }
             )
         return out
-    
+
     def get_by_id_for_update(self, contrato_id: int) -> Optional[dict]:
         query = """
             SELECT *

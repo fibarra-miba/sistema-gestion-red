@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
 import psycopg
 
 from app.repositories.contratos_repo import ContractRepository
 from app.repositories.instalaciones_repo import InstalacionesRepository
+from app.repositories.planes_repo import PlanesRepository
+from app.repositories.clientes_repo import get_cliente_by_id
+from app.repositories.domicilios_repo import (
+    get_domicilio_by_id,
+    get_domicilio_vigente_by_cliente,
+)
 
 
 class ContractService:
@@ -20,6 +26,8 @@ class ContractService:
     BAJA = 5
     CANCELADO = 6
 
+    PLAN_ACTIVO = 1
+
     def __init__(
         self,
         repo: ContractRepository,
@@ -27,12 +35,66 @@ class ContractService:
     ):
         self.repo = repo
         self.instalaciones_repo = instalaciones_repo
+        self.planes_repo = PlanesRepository(repo.conn)
+
+    # ==========================================================
+    # VALIDACIONES AUXILIARES
+    # ==========================================================
+
+    def _validar_cliente_existente(self, cliente_id: int) -> dict:
+        cliente = get_cliente_by_id(self.repo.conn, cliente_id)
+        if not cliente:
+            raise ValueError("Cliente no encontrado.")
+        return cliente
+
+    def _validar_domicilio(self, cliente_id: int, domicilio_id: int) -> dict:
+        domicilio = get_domicilio_by_id(self.repo.conn, domicilio_id)
+        if not domicilio:
+            raise ValueError("Domicilio no encontrado.")
+
+        if int(domicilio["cliente_id"]) != int(cliente_id):
+            raise ValueError("El domicilio no pertenece al cliente informado.")
+
+        domicilio_vigente = get_domicilio_vigente_by_cliente(self.repo.conn, cliente_id)
+        if not domicilio_vigente or int(domicilio_vigente["domicilio_id"]) != int(domicilio_id):
+            raise ValueError("El domicilio informado no es el domicilio vigente del cliente.")
+
+        return domicilio
+
+    def _validar_plan_activo(self, plan_id: int) -> dict:
+        with self.repo.conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT plan_id, estado_plan_id
+                FROM planes
+                WHERE plan_id = %s
+                """,
+                (plan_id,),
+            )
+            row = cur.fetchone()
+
+        if not row:
+            raise ValueError("Plan no encontrado.")
+
+        estado_plan_id = int(row[1])
+
+        if estado_plan_id != self.PLAN_ACTIVO:
+            raise ValueError("El plan informado no está activo.")
+
+        return {
+            "plan_id": int(row[0]),
+            "estado_plan_id": estado_plan_id,
+        }
 
     # ==========================================================
     # CREATE
     # ==========================================================
 
     def create_contract(self, cliente_id: int, domicilio_id: int, plan_id: int) -> dict:
+        self._validar_cliente_existente(cliente_id)
+        self._validar_domicilio(cliente_id, domicilio_id)
+        self._validar_plan_activo(plan_id)
+
         now = datetime.now(timezone.utc)
         return self.repo.create(
             cliente_id=cliente_id,
@@ -52,8 +114,28 @@ class ContractService:
             raise ValueError("Contrato no encontrado.")
         return contrato
 
+    def get_contract_commercial(self, contrato_id: int) -> dict:
+        contrato = self.repo.get_commercial_by_id(contrato_id)
+        if not contrato:
+            raise ValueError("Contrato no encontrado.")
+        return contrato
+
     def list_by_cliente(self, cliente_id: int) -> List[dict]:
         return self.repo.get_by_cliente(cliente_id)
+
+    def list_contracts(
+        self,
+        cliente_id: Optional[int] = None,
+        estado_contrato_id: Optional[int] = None,
+        plan_id: Optional[int] = None,
+        domicilio_id: Optional[int] = None,
+    ) -> List[dict]:
+        return self.repo.list_commercial(
+            cliente_id=cliente_id,
+            estado_contrato_id=estado_contrato_id,
+            plan_id=plan_id,
+            domicilio_id=domicilio_id,
+        )
 
     # ==========================================================
     # ACTIVATE / RESUME
@@ -82,7 +164,6 @@ class ContractService:
         try:
             self.repo.update_estado(contrato_id, self.ACTIVO, fecha_fin=None)
         except psycopg.errors.ExclusionViolation:
-            # defensa extra: por concurrencia o si alguien tocó directo DB
             raise ValueError("Ya existe un contrato ACTIVO vigente para ese domicilio.")
 
     def suspend(self, contrato_id: int) -> None:
@@ -128,15 +209,14 @@ class ContractService:
         if contrato["estado_contrato_id"] not in (self.ACTIVO, self.SUSPENDIDO):
             raise ValueError("Solo contratos activos o suspendidos pueden cambiar de plan.")
 
-        # Cerrar contrato actual (evita solapamiento)
-        #self.repo.update_estado(contrato_id, self.BAJA, fecha_fin=datetime.utcnow())
+        self._validar_plan_activo(new_plan_id)
+
         self.repo.update_estado(
             contrato_id,
             self.BAJA,
             fecha_fin=datetime.now(timezone.utc)
         )
 
-        # Crear nuevo contrato en BORRADOR, mismo domicilio
         nuevo = self.repo.create(
             cliente_id=int(contrato["cliente_id"]),
             domicilio_id=int(contrato["domicilio_id"]),
@@ -145,7 +225,11 @@ class ContractService:
             estado_contrato_id=self.BORRADOR,
         )
         return nuevo
-    
+
+    # ==========================================================
+    # CONDICIÓN TÉCNICA
+    # ==========================================================
+
     def confirmar_condicion_tecnica(
         self,
         contrato_id: int,

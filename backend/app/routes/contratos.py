@@ -10,9 +10,10 @@ from app.services.contratos_service import ContractService
 from app.schemas.contrato import (
     ContractCreate,
     ContractResponse,
-    ContractListResponse,
+    ContractCommercialResponse,
+    ContractCommercialListResponse,
     ContractChangePlan,
-    ContractConfirmTechnicalCondition
+    ContractConfirmTechnicalCondition,
 )
 
 
@@ -40,23 +41,31 @@ def create_contract(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/{contract_id}", response_model=ContractResponse)
+@router.get("/{contract_id}", response_model=ContractCommercialResponse)
 def get_contract(
     contract_id: int,
     service: ContractService = Depends(get_service),
 ):
     try:
-        return service.get_contract(contract_id)
+        return service.get_contract_commercial(contract_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.get("", response_model=ContractListResponse)
+@router.get("", response_model=ContractCommercialListResponse)
 def list_contracts(
-    cliente_id: int = Query(...),
+    cliente_id: int | None = Query(default=None),
+    estado_contrato_id: int | None = Query(default=None),
+    plan_id: int | None = Query(default=None),
+    domicilio_id: int | None = Query(default=None),
     service: ContractService = Depends(get_service),
 ):
-    contracts = service.list_by_cliente(cliente_id)
+    contracts = service.list_contracts(
+        cliente_id=cliente_id,
+        estado_contrato_id=estado_contrato_id,
+        plan_id=plan_id,
+        domicilio_id=domicilio_id,
+    )
     return {"items": contracts}
 
 
@@ -127,12 +136,12 @@ def change_plan(
     service: ContractService = Depends(get_service),
 ):
     try:
-        # Posicional para evitar mismatch de keywords
         new_contract = service.change_plan(contract_id, payload.new_plan_id)
         return new_contract
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    
+
+
 @router.post("/{contrato_id}/confirmar-condicion-tecnica")
 def confirmar_condicion_tecnica(
     contrato_id: int,

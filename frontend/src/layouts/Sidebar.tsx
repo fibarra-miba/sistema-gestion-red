@@ -1,3 +1,4 @@
+// frontend/src/layouts/Sidebar.tsx
 import { NavLink } from 'react-router-dom';
 import {
   Box,
@@ -16,12 +17,14 @@ import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import RouterOutlinedIcon from '@mui/icons-material/RouterOutlined';
 
 const drawerWidth = 260;
 
 const navItems = [
   { label: 'Dashboard', to: '/', icon: <DashboardOutlinedIcon /> },
   { label: 'Clientes', to: '/clientes', icon: <GroupsOutlinedIcon /> },
+  { label: 'Planes', to: '/planes', icon: <RouterOutlinedIcon /> },
   { label: 'Contratos', to: '/contratos', icon: <DescriptionOutlinedIcon /> },
   { label: 'Pagos', to: '/pagos', icon: <ReceiptLongOutlinedIcon /> },
   { label: 'Instalaciones', to: '/instalaciones', icon: <BuildOutlinedIcon /> },
@@ -58,6 +61,7 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
               key={item.to}
               component={NavLink}
               to={item.to}
+              end={item.to === '/'}
               onClick={onClose}
               sx={{
                 borderRadius: 2,

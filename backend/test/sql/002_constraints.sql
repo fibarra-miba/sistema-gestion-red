@@ -100,6 +100,10 @@ ALTER TABLE planes
   FOREIGN KEY (estado_plan_id)
   REFERENCES estado_plan(estado_plan_id);
 
+ALTER TABLE planes
+  ADD CONSTRAINT uq_planes_nombre
+  UNIQUE (nombre_plan);
+
 -- ============================
 -- PRECIOS_PLANES
 -- ============================
@@ -107,6 +111,30 @@ ALTER TABLE precios_planes
   ADD CONSTRAINT fk_pplanes_plan
   FOREIGN KEY (plan_id)
   REFERENCES planes(plan_id);
+
+ALTER TABLE precios_planes
+  ADD CONSTRAINT chk_pplanes_precio_positivo
+  CHECK (precio_mensual_pplanes > 0);
+
+ALTER TABLE precios_planes
+  ADD CONSTRAINT chk_pplanes_fechas
+  CHECK (
+    fecha_hasta_pplanes IS NULL
+    OR fecha_hasta_pplanes > fecha_desde_pplanes
+  );
+
+-- Requerido para EXCLUDE con columna btree + range
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+ALTER TABLE precios_planes
+  ADD CONSTRAINT ex_pplanes_no_solapado
+  EXCLUDE USING gist (
+    plan_id WITH =,
+    tstzrange(
+      fecha_desde_pplanes,
+      COALESCE(fecha_hasta_pplanes, 'infinity'::timestamptz),
+      '[)'
+    ) WITH &&
+  );
 
 -- ============================
 -- CONTRATOS
@@ -167,6 +195,43 @@ ALTER TABLE promociones
   ADD CONSTRAINT fk_promociones_tipo_promo
   FOREIGN KEY (tipo_promo_id)
   REFERENCES tipo_promocion(tipo_promo_id);
+
+ALTER TABLE promociones
+  ADD CONSTRAINT chk_promociones_fechas
+  CHECK (
+    fecha_vigencia_hasta_promo IS NULL
+    OR fecha_vigencia_hasta_promo > fecha_vigencia_desde_promo
+  );
+
+ALTER TABLE promociones
+  ADD CONSTRAINT chk_promociones_porcentaje_rango
+  CHECK (
+    porcentaje_descuento IS NULL
+    OR (porcentaje_descuento > 0 AND porcentaje_descuento <= 100)
+  );
+
+ALTER TABLE promociones
+  ADD CONSTRAINT chk_promociones_monto_positivo
+  CHECK (
+    monto_descuento IS NULL
+    OR monto_descuento > 0
+  );
+
+ALTER TABLE promociones
+  ADD CONSTRAINT chk_promociones_tipo_consistente
+  CHECK (
+    (
+      tipo_promo_id = 1
+      AND porcentaje_descuento IS NOT NULL
+      AND monto_descuento IS NULL
+    )
+    OR
+    (
+      tipo_promo_id = 2
+      AND monto_descuento IS NOT NULL
+      AND porcentaje_descuento IS NULL
+    )
+  );
 
 -- ============================
 -- TIPO_PROMOCION

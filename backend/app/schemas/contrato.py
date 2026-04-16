@@ -31,7 +31,7 @@ class ContractCreate(BaseModel):
 
 
 # ==========================================================
-# RESPONSE
+# RESPONSE (RAW / OPERATIVO)
 # ==========================================================
 
 class ContractResponse(BaseModel):
@@ -42,6 +42,32 @@ class ContractResponse(BaseModel):
     fecha_inicio_contrato: datetime
     fecha_fin_contrato: Optional[datetime] = None
     estado_contrato_id: int
+    aplica_promocion: bool = False
+    promocion_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ==========================================================
+# RESPONSE (COMERCIAL / ENRIQUECIDO)
+# ==========================================================
+
+class ContractCommercialResponse(BaseModel):
+    contrato_id: int
+    cliente_id: int
+    cliente_nombre: str
+    cliente_apellido: str
+    domicilio_id: int
+    domicilio_resumen: Optional[str] = None
+    plan_id: int
+    plan_nombre: str
+    fecha_inicio_contrato: datetime
+    fecha_fin_contrato: Optional[datetime] = None
+    estado_contrato_id: int
+    estado_contrato_descripcion: str
+    aplica_promocion: bool = False
+    promocion_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -53,6 +79,10 @@ class ContractResponse(BaseModel):
 
 class ContractListResponse(BaseModel):
     items: List[ContractResponse]
+
+
+class ContractCommercialListResponse(BaseModel):
+    items: List[ContractCommercialResponse]
 
 
 # ==========================================================
@@ -69,6 +99,7 @@ class ContractTerminate(BaseModel):
 
 class ContractChangePlan(BaseModel):
     new_plan_id: int = Field(..., ge=1)
+
 
 class ContractConfirmTechnicalCondition(BaseModel):
     apto: bool

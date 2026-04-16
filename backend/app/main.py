@@ -5,6 +5,7 @@ from app.routes.pagos import router as pagos_router
 from app.routes.catalogos import router as catalogos_router
 from app.routes.instalaciones import router as instalaciones_router
 from app.routes.domicilios import router as domicilios_router
+from app.routes.planes import router as planes_router
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Sistema RED API")
@@ -33,3 +34,4 @@ app.include_router(contratos_router)
 app.include_router(pagos_router)
 app.include_router(catalogos_router)
 app.include_router(instalaciones_router)
+app.include_router(planes_router)
