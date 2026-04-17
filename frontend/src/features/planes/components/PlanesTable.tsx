@@ -1,4 +1,6 @@
 import {
+  Box,
+  Chip,
   IconButton,
   Paper,
   Stack,
@@ -24,6 +26,10 @@ function getEstadoLabel(estadoPlanId: number) {
   return estadoPlanId === 1 ? "ACTIVO" : "INACTIVO";
 }
 
+function getEstadoColor(estadoPlanId: number) {
+  return estadoPlanId === 1 ? "success" : "default";
+}
+
 export function PlanesTable({
   planes,
   onEdit,
@@ -31,15 +37,26 @@ export function PlanesTable({
 }: PlanesTableProps) {
   if (!planes.length) {
     return (
-      <Paper sx={{ p: 3 }}>
-        <Typography>No hay planes cargados.</Typography>
-      </Paper>
+      <Box
+        sx={{
+          py: 6,
+          px: 2,
+          textAlign: "center",
+        }}
+      >
+        <Typography variant="h6" gutterBottom>
+          No hay planes
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Aún no hay planes cargados.
+        </Typography>
+      </Box>
     );
   }
 
   return (
-    <Paper sx={{ overflow: "hidden" }}>
-      <Table>
+    <Paper sx={{ overflow: "hidden" }} variant="outlined" elevation={0}>
+      <Table size="small">
         <TableHead>
           <TableRow>
             <TableCell>ID</TableCell>
@@ -53,12 +70,18 @@ export function PlanesTable({
 
         <TableBody>
           {planes.map((plan) => (
-            <TableRow key={plan.plan_id}>
+            <TableRow key={plan.plan_id} hover>
               <TableCell>{plan.plan_id}</TableCell>
               <TableCell>{plan.nombre_plan}</TableCell>
               <TableCell>{plan.velocidad_mbps_plan} Mbps</TableCell>
               <TableCell>{plan.descripcion_plan || "-"}</TableCell>
-              <TableCell>{getEstadoLabel(plan.estado_plan_id)}</TableCell>
+              <TableCell>
+                <Chip
+                  label={getEstadoLabel(plan.estado_plan_id)}
+                  color={getEstadoColor(plan.estado_plan_id) as "success" | "default"}
+                  size="small"
+                />
+              </TableCell>
               <TableCell align="right">
                 <Stack direction="row" spacing={1} justifyContent="flex-end">
                   <Tooltip title="Editar plan">

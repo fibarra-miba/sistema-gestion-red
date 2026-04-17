@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
 import PauseIcon from "@mui/icons-material/Pause";
@@ -11,16 +11,20 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
   IconButton,
+  Skeleton,
   Stack,
+  Tooltip,
   Typography,
 } from "@mui/material";
+
+import { useNotifications } from "../../../components/ui/notifications/useNotifications";
+import { getErrorMessage } from "../../../shared/utils/getErrorMessage";
 
 import { useContrato } from "../hooks/useContrato";
 import { useActivateContrato } from "../hooks/useActivateContrato";
@@ -38,6 +42,8 @@ interface Props {
   onClose: () => void;
 }
 
+type ConfirmActionType = "cancel" | "suspend" | "terminate" | null;
+
 const getEstadoColor = (estado: string) => {
   switch (estado) {
     case "ACTIVO":
@@ -54,8 +60,65 @@ const getEstadoColor = (estado: string) => {
   }
 };
 
+const DetailSkeleton = () => {
+  return (
+    <Stack spacing={2.5}>
+      <Stack spacing={1.5}>
+        <Box>
+          <Typography variant="subtitle2">Cliente</Typography>
+          <Skeleton variant="text" width="70%" height={32} />
+        </Box>
+
+        <Box>
+          <Typography variant="subtitle2">Plan</Typography>
+          <Skeleton variant="text" width="55%" height={32} />
+        </Box>
+
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+          <Box flex={1}>
+            <Typography variant="subtitle2">Inicio</Typography>
+            <Skeleton variant="text" width="80%" height={32} />
+          </Box>
+
+          <Box flex={1}>
+            <Typography variant="subtitle2">Fin</Typography>
+            <Skeleton variant="text" width="80%" height={32} />
+          </Box>
+        </Stack>
+
+        <Box>
+          <Typography variant="subtitle2">Estado</Typography>
+          <Skeleton variant="rounded" width={140} height={28} />
+        </Box>
+
+        <Box>
+          <Typography variant="subtitle2">ID contrato</Typography>
+          <Skeleton variant="text" width={90} height={32} />
+        </Box>
+      </Stack>
+
+      <Divider />
+
+      <Stack spacing={1.25}>
+        <Typography variant="subtitle2">Acciones</Typography>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Skeleton variant="rounded" width={220} height={36} />
+          <Skeleton variant="rounded" width={130} height={36} />
+          <Skeleton variant="rounded" width={150} height={36} />
+        </Stack>
+      </Stack>
+    </Stack>
+  );
+};
+
 const ContratoDetailDialog = ({ open, contratoId, onClose }: Props) => {
-  const { data: contrato, isLoading, isError } = useContrato(contratoId ?? undefined);
+  const { success, error: notifyError } = useNotifications();
+
+  const {
+    data: contrato,
+    isLoading,
+    isError,
+  } = useContrato(contratoId ?? undefined);
 
   const activateMutation = useActivateContrato();
   const suspendMutation = useSuspendContrato();
@@ -65,37 +128,164 @@ const ContratoDetailDialog = ({ open, contratoId, onClose }: Props) => {
 
   const [openChangePlan, setOpenChangePlan] = useState(false);
   const [openTechnical, setOpenTechnical] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<ConfirmActionType>(null);
 
-  const isMutating =
-    activateMutation.isPending ||
-    suspendMutation.isPending ||
-    resumeMutation.isPending ||
-    cancelMutation.isPending ||
-    terminateMutation.isPending;
+  const confirmConfig = useMemo(() => {
+    switch (confirmAction) {
+      case "cancel":
+        return {
+          title: "Confirmar cancelación",
+          description:
+            "Esta acción cancelará el contrato actual. Verificá que realmente quieras continuar.",
+          confirmText: "Sí, cancelar",
+          color: "error" as const,
+          loading: cancelMutation.isPending,
+        };
+      case "suspend":
+        return {
+          title: "Confirmar suspensión",
+          description:
+            "El contrato quedará suspendido hasta que se reanude manualmente.",
+          confirmText: "Sí, suspender",
+          color: "warning" as const,
+          loading: suspendMutation.isPending,
+        };
+      case "terminate":
+        return {
+          title: "Confirmar baja",
+          description:
+            "El contrato será dado de baja. Esta acción impacta directamente en el ciclo de vida del servicio.",
+          confirmText: "Sí, dar de baja",
+          color: "error" as const,
+          loading: terminateMutation.isPending,
+        };
+      default:
+        return null;
+    }
+  }, [
+    confirmAction,
+    cancelMutation.isPending,
+    suspendMutation.isPending,
+    terminateMutation.isPending,
+  ]);
+
+  const isActivateLoading = activateMutation.isPending;
+  const isResumeLoading = resumeMutation.isPending;
+  const isSuspendLoading = suspendMutation.isPending;
+  const isCancelLoading = cancelMutation.isPending;
+  const isTerminateLoading = terminateMutation.isPending;
+
+  const isAnyActionPending =
+    isActivateLoading ||
+    isResumeLoading ||
+    isSuspendLoading ||
+    isCancelLoading ||
+    isTerminateLoading;
+
+  const handleActivate = async () => {
+    if (!contrato) return;
+
+    try {
+      await activateMutation.mutateAsync(contrato.contrato_id);
+      success("Contrato activado correctamente.");
+    } catch (err: any) {
+      notifyError(getErrorMessage(err, "No se pudo activar el contrato."));
+    }
+  };
+
+  const handleResume = async () => {
+    if (!contrato) return;
+
+    try {
+      await resumeMutation.mutateAsync(contrato.contrato_id);
+      success("Contrato reanudado correctamente.");
+    } catch (err: any) {
+      notifyError(getErrorMessage(err, "No se pudo reanudar el contrato."));
+    }
+  };
+
+  const handleConfirmCriticalAction = async () => {
+    if (!contrato || !confirmAction) return;
+
+    try {
+      if (confirmAction === "cancel") {
+        await cancelMutation.mutateAsync(contrato.contrato_id);
+        success("Contrato cancelado correctamente.");
+      }
+
+      if (confirmAction === "suspend") {
+        await suspendMutation.mutateAsync(contrato.contrato_id);
+        success("Contrato suspendido correctamente.");
+      }
+
+      if (confirmAction === "terminate") {
+        await terminateMutation.mutateAsync(contrato.contrato_id);
+        success("Contrato dado de baja correctamente.");
+      }
+
+      setConfirmAction(null);
+    } catch (err: any) {
+      setConfirmAction(null);
+      notifyError(
+        getErrorMessage(err, "No se pudo completar la acción solicitada.")
+      );
+    }
+  };
+
+  const handleOpenNewContrato = (newContratoId: number) => {
+    setOpenChangePlan(false);
+    success("Plan cambiado correctamente. Se abrió el nuevo contrato.");
+
+    window.setTimeout(() => {
+      onClose();
+
+      window.setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent("open-contrato-detail", {
+            detail: { contratoId: newContratoId },
+          })
+        );
+      }, 50);
+    }, 50);
+  };
 
   return (
     <>
-      <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <Dialog
+        open={open}
+        onClose={(_, reason) => {
+          if (isAnyActionPending && reason !== "escapeKeyDown") {
+            return;
+          }
+          onClose();
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
         <DialogTitle>
           Detalle del contrato
-          <IconButton
-            aria-label="close"
-            onClick={onClose}
-            sx={{ position: "absolute", right: 8, top: 8 }}
-          >
-            <CloseIcon />
-          </IconButton>
+
+          <Tooltip title="Cerrar">
+            <span>
+              <IconButton
+                aria-label="close"
+                onClick={onClose}
+                disabled={isAnyActionPending}
+                sx={{ position: "absolute", right: 8, top: 8 }}
+              >
+                <CloseIcon />
+              </IconButton>
+            </span>
+          </Tooltip>
         </DialogTitle>
 
         <DialogContent dividers>
-          {isLoading && (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-              <CircularProgress />
-            </Box>
-          )}
+          {isLoading && <DetailSkeleton />}
 
           {isError && (
-            <Alert severity="error">No se pudo cargar el detalle del contrato.</Alert>
+            <Alert severity="error">
+              No se pudo cargar el detalle del contrato.
+            </Alert>
           )}
 
           {!isLoading && !isError && contrato && (
@@ -117,7 +307,9 @@ const ContratoDetailDialog = ({ open, contratoId, onClose }: Props) => {
                   <Box flex={1}>
                     <Typography variant="subtitle2">Inicio</Typography>
                     <Typography>
-                      {new Date(contrato.fecha_inicio_contrato).toLocaleDateString()}
+                      {new Date(
+                        contrato.fecha_inicio_contrato
+                      ).toLocaleDateString()}
                     </Typography>
                   </Box>
 
@@ -125,7 +317,9 @@ const ContratoDetailDialog = ({ open, contratoId, onClose }: Props) => {
                     <Typography variant="subtitle2">Fin</Typography>
                     <Typography>
                       {contrato.fecha_fin_contrato
-                        ? new Date(contrato.fecha_fin_contrato).toLocaleDateString()
+                        ? new Date(
+                            contrato.fecha_fin_contrato
+                          ).toLocaleDateString()
                         : "-"}
                     </Typography>
                   </Box>
@@ -135,12 +329,14 @@ const ContratoDetailDialog = ({ open, contratoId, onClose }: Props) => {
                   <Typography variant="subtitle2">Estado</Typography>
                   <Chip
                     label={contrato.estado_contrato_descripcion}
-                    color={getEstadoColor(contrato.estado_contrato_descripcion) as
-                      | "default"
-                      | "success"
-                      | "warning"
-                      | "error"
-                      | "info"}
+                    color={
+                      getEstadoColor(contrato.estado_contrato_descripcion) as
+                        | "default"
+                        | "success"
+                        | "warning"
+                        | "error"
+                        | "info"
+                    }
                     size="small"
                   />
                 </Box>
@@ -159,124 +355,169 @@ const ContratoDetailDialog = ({ open, contratoId, onClose }: Props) => {
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                   {contrato.estado_contrato_descripcion === "BORRADOR" && (
                     <>
-                      <Button
-                        variant="contained"
-                        startIcon={<BuildIcon />}
-                        onClick={() => setOpenTechnical(true)}
-                        disabled={isMutating}
-                      >
-                        Confirmar condición técnica
-                      </Button>
+                      <Tooltip title="Confirmar si el domicilio es apto o si requiere instalación">
+                        <span>
+                          <Button
+                            variant="contained"
+                            startIcon={<BuildIcon />}
+                            onClick={() => setOpenTechnical(true)}
+                            disabled={isAnyActionPending}
+                          >
+                            Confirmar condición técnica
+                          </Button>
+                        </span>
+                      </Tooltip>
 
-                      <Button
-                        variant="contained"
-                        color="success"
-                        startIcon={<PlayArrowIcon />}
-                        onClick={() => activateMutation.mutate(contrato.contrato_id)}
-                        disabled={isMutating}
-                      >
-                        Activar
-                      </Button>
+                      <Tooltip title="Activar contrato">
+                        <span>
+                          <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<PlayArrowIcon />}
+                            onClick={handleActivate}
+                            disabled={isActivateLoading}
+                          >
+                            {isActivateLoading ? "Activando..." : "Activar"}
+                          </Button>
+                        </span>
+                      </Tooltip>
 
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        startIcon={<CancelIcon />}
-                        onClick={() => cancelMutation.mutate(contrato.contrato_id)}
-                        disabled={isMutating}
-                      >
-                        Cancelar
-                      </Button>
+                      <Tooltip title="Cancelar contrato">
+                        <span>
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            startIcon={<CancelIcon />}
+                            onClick={() => setConfirmAction("cancel")}
+                            disabled={isCancelLoading}
+                          >
+                            {isCancelLoading ? "Cancelando..." : "Cancelar"}
+                          </Button>
+                        </span>
+                      </Tooltip>
                     </>
                   )}
 
-                  {contrato.estado_contrato_descripcion === "PENDIENTE_INSTALACION" && (
+                  {contrato.estado_contrato_descripcion ===
+                    "PENDIENTE_INSTALACION" && (
                     <>
-                      <Button
-                        variant="contained"
-                        color="success"
-                        startIcon={<PlayArrowIcon />}
-                        onClick={() => activateMutation.mutate(contrato.contrato_id)}
-                        disabled={isMutating}
-                      >
-                        Activar
-                      </Button>
+                      <Tooltip title="Activar contrato">
+                        <span>
+                          <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<PlayArrowIcon />}
+                            onClick={handleActivate}
+                            disabled={isActivateLoading}
+                          >
+                            {isActivateLoading ? "Activando..." : "Activar"}
+                          </Button>
+                        </span>
+                      </Tooltip>
 
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        startIcon={<CancelIcon />}
-                        onClick={() => cancelMutation.mutate(contrato.contrato_id)}
-                        disabled={isMutating}
-                      >
-                        Cancelar
-                      </Button>
+                      <Tooltip title="Cancelar contrato">
+                        <span>
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            startIcon={<CancelIcon />}
+                            onClick={() => setConfirmAction("cancel")}
+                            disabled={isCancelLoading}
+                          >
+                            {isCancelLoading ? "Cancelando..." : "Cancelar"}
+                          </Button>
+                        </span>
+                      </Tooltip>
                     </>
                   )}
 
                   {contrato.estado_contrato_descripcion === "ACTIVO" && (
                     <>
-                      <Button
-                        variant="outlined"
-                        color="warning"
-                        startIcon={<PauseIcon />}
-                        onClick={() => suspendMutation.mutate(contrato.contrato_id)}
-                        disabled={isMutating}
-                      >
-                        Suspender
-                      </Button>
+                      <Tooltip title="Suspender contrato">
+                        <span>
+                          <Button
+                            variant="outlined"
+                            color="warning"
+                            startIcon={<PauseIcon />}
+                            onClick={() => setConfirmAction("suspend")}
+                            disabled={isSuspendLoading}
+                          >
+                            {isSuspendLoading ? "Suspendiendo..." : "Suspender"}
+                          </Button>
+                        </span>
+                      </Tooltip>
 
-                      <Button
-                        variant="outlined"
-                        startIcon={<EditIcon />}
-                        onClick={() => setOpenChangePlan(true)}
-                        disabled={isMutating}
-                      >
-                        Cambiar plan
-                      </Button>
+                      <Tooltip title="Crear un nuevo contrato con otro plan">
+                        <span>
+                          <Button
+                            variant="outlined"
+                            startIcon={<EditIcon />}
+                            onClick={() => setOpenChangePlan(true)}
+                            disabled={isAnyActionPending}
+                          >
+                            Cambiar plan
+                          </Button>
+                        </span>
+                      </Tooltip>
 
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        startIcon={<StopCircleIcon />}
-                        onClick={() => terminateMutation.mutate(contrato.contrato_id)}
-                        disabled={isMutating}
-                      >
-                        Dar de baja
-                      </Button>
+                      <Tooltip title="Dar de baja contrato">
+                        <span>
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            startIcon={<StopCircleIcon />}
+                            onClick={() => setConfirmAction("terminate")}
+                            disabled={isTerminateLoading}
+                          >
+                            {isTerminateLoading ? "Procesando baja..." : "Dar de baja"}
+                          </Button>
+                        </span>
+                      </Tooltip>
                     </>
                   )}
 
                   {contrato.estado_contrato_descripcion === "SUSPENDIDO" && (
                     <>
-                      <Button
-                        variant="contained"
-                        color="success"
-                        startIcon={<PlayArrowIcon />}
-                        onClick={() => resumeMutation.mutate(contrato.contrato_id)}
-                        disabled={isMutating}
-                      >
-                        Reanudar
-                      </Button>
+                      <Tooltip title="Reanudar contrato">
+                        <span>
+                          <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<PlayArrowIcon />}
+                            onClick={handleResume}
+                            disabled={isResumeLoading}
+                          >
+                            {isResumeLoading ? "Reanudando..." : "Reanudar"}
+                          </Button>
+                        </span>
+                      </Tooltip>
 
-                      <Button
-                        variant="outlined"
-                        startIcon={<EditIcon />}
-                        onClick={() => setOpenChangePlan(true)}
-                        disabled={isMutating}
-                      >
-                        Cambiar plan
-                      </Button>
+                      <Tooltip title="Crear un nuevo contrato con otro plan">
+                        <span>
+                          <Button
+                            variant="outlined"
+                            startIcon={<EditIcon />}
+                            onClick={() => setOpenChangePlan(true)}
+                            disabled={isAnyActionPending}
+                          >
+                            Cambiar plan
+                          </Button>
+                        </span>
+                      </Tooltip>
 
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        startIcon={<StopCircleIcon />}
-                        onClick={() => terminateMutation.mutate(contrato.contrato_id)}
-                        disabled={isMutating}
-                      >
-                        Dar de baja
-                      </Button>
+                      <Tooltip title="Dar de baja contrato">
+                        <span>
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            startIcon={<StopCircleIcon />}
+                            onClick={() => setConfirmAction("terminate")}
+                            disabled={isTerminateLoading}
+                          >
+                            {isTerminateLoading ? "Procesando baja..." : "Dar de baja"}
+                          </Button>
+                        </span>
+                      </Tooltip>
                     </>
                   )}
                 </Stack>
@@ -286,7 +527,46 @@ const ContratoDetailDialog = ({ open, contratoId, onClose }: Props) => {
         </DialogContent>
 
         <DialogActions>
-          <Button onClick={onClose}>Cerrar</Button>
+          <Button onClick={onClose} disabled={isAnyActionPending}>
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={!!confirmAction}
+        onClose={() => {
+          if (!confirmConfig?.loading) {
+            setConfirmAction(null);
+          }
+        }}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>{confirmConfig?.title}</DialogTitle>
+
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            {confirmConfig?.description}
+          </Typography>
+        </DialogContent>
+
+        <DialogActions>
+          <Button
+            onClick={() => setConfirmAction(null)}
+            disabled={!!confirmConfig?.loading}
+          >
+            Volver
+          </Button>
+
+          <Button
+            variant="contained"
+            color={confirmConfig?.color}
+            onClick={handleConfirmCriticalAction}
+            disabled={!!confirmConfig?.loading}
+          >
+            {confirmConfig?.loading ? "Procesando..." : confirmConfig?.confirmText}
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -296,6 +576,7 @@ const ContratoDetailDialog = ({ open, contratoId, onClose }: Props) => {
             open={openChangePlan}
             contrato={contrato}
             onClose={() => setOpenChangePlan(false)}
+            onChanged={handleOpenNewContrato}
           />
 
           <ConfirmTechnicalConditionDialog

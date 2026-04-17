@@ -1,24 +1,21 @@
-import { useEffect, useState } from "react";
-import { Box, MenuItem, Stack, TextField } from "@mui/material";
-
-import { useClientes } from "../../clientes/hooks/useClientes";
+// frontend/src/features/contratos/components/ContratosFilters.tsx
+import { useEffect, useMemo, useState } from "react";
+import { Box, Button, MenuItem, Stack, TextField } from "@mui/material";
 import { usePlanes } from "../../planes/hooks/usePlanes";
 
+type ContratosFiltersValue = {
+  search?: string;
+  estado_contrato_id?: number;
+  plan_id?: number;
+};
+
 interface Props {
-  value?: {
-    cliente_id?: number;
-    estado_contrato_id?: number;
-    plan_id?: number;
-  };
-  onFilter: (filters: {
-    cliente_id?: number;
-    estado_contrato_id?: number;
-    plan_id?: number;
-  }) => void;
-  onDirtyChange?: (isDirty: boolean) => void;
+  value: ContratosFiltersValue;
+  onFilter: (filters: ContratosFiltersValue) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
-const estadosContrato = [
+const ESTADOS_CONTRATO = [
   { id: 1, label: "BORRADOR" },
   { id: 2, label: "PENDIENTE_INSTALACION" },
   { id: 3, label: "ACTIVO" },
@@ -28,85 +25,89 @@ const estadosContrato = [
 ];
 
 const ContratosFilters = ({ value, onFilter, onDirtyChange }: Props) => {
-  const { data: clientes = [] } = useClientes("");
+  const [search, setSearch] = useState(value.search ?? "");
+  const [estadoContratoId, setEstadoContratoId] = useState<number | "">(
+    value.estado_contrato_id ?? ""
+  );
+  const [planId, setPlanId] = useState<number | "">(value.plan_id ?? "");
+
   const { data: planes = [] } = usePlanes();
 
-  const [clienteId, setClienteId] = useState<number | "">(value?.cliente_id ?? "");
-  const [estadoId, setEstadoId] = useState<number | "">(value?.estado_contrato_id ?? "");
-  const [planId, setPlanId] = useState<number | "">(value?.plan_id ?? "");
+  useEffect(() => {
+    setSearch(value.search ?? "");
+    setEstadoContratoId(value.estado_contrato_id ?? "");
+    setPlanId(value.plan_id ?? "");
+  }, [value]);
+
+  const normalizedFilters = useMemo(
+    () => ({
+      search: search.trim(),
+      estado_contrato_id:
+        estadoContratoId === "" ? undefined : Number(estadoContratoId),
+      plan_id: planId === "" ? undefined : Number(planId),
+    }),
+    [search, estadoContratoId, planId]
+  );
+
+  const dirty = useMemo(
+    () =>
+      !!normalizedFilters.search ||
+      normalizedFilters.estado_contrato_id !== undefined ||
+      normalizedFilters.plan_id !== undefined,
+    [normalizedFilters]
+  );
 
   useEffect(() => {
-    setClienteId(value?.cliente_id ?? "");
-    setEstadoId(value?.estado_contrato_id ?? "");
-    setPlanId(value?.plan_id ?? "");
-  }, [value?.cliente_id, value?.estado_contrato_id, value?.plan_id]);
-
-  const emitFilters = (
-    nextClienteId: number | "",
-    nextEstadoId: number | "",
-    nextPlanId: number | ""
-  ) => {
-    const filters = {
-      cliente_id: nextClienteId === "" ? undefined : nextClienteId,
-      estado_contrato_id: nextEstadoId === "" ? undefined : nextEstadoId,
-      plan_id: nextPlanId === "" ? undefined : nextPlanId,
-    };
-
-    onFilter(filters);
-
-    const dirty =
-      filters.cliente_id !== undefined ||
-      filters.estado_contrato_id !== undefined ||
-      filters.plan_id !== undefined;
-
     onDirtyChange?.(dirty);
-  };
+  }, [dirty, onDirtyChange]);
 
-  const handleClienteChange = (value: string) => {
-    const nextValue = value === "" ? "" : Number(value);
-    setClienteId(nextValue);
-    emitFilters(nextValue, estadoId, planId);
-  };
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      onFilter(normalizedFilters);
+    }, 300);
 
-  const handleEstadoChange = (value: string) => {
-    const nextValue = value === "" ? "" : Number(value);
-    setEstadoId(nextValue);
-    emitFilters(clienteId, nextValue, planId);
-  };
+    return () => window.clearTimeout(timeout);
+  }, [normalizedFilters, onFilter]);
 
-  const handlePlanChange = (value: string) => {
-    const nextValue = value === "" ? "" : Number(value);
-    setPlanId(nextValue);
-    emitFilters(clienteId, estadoId, nextValue);
+  const handleClear = () => {
+    setSearch("");
+    setEstadoContratoId("");
+    setPlanId("");
   };
 
   return (
-    <Box>
-      <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+    <Stack spacing={2}>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "1fr",
+            md: "repeat(3, minmax(0, 1fr))",
+          },
+          gap: 2,
+        }}
+      >
         <TextField
-          select
-          fullWidth
           label="Cliente"
-          value={clienteId}
-          onChange={(e) => handleClienteChange(e.target.value)}
-        >
-          <MenuItem value="">Todos</MenuItem>
-          {clientes.map((cliente: any) => (
-            <MenuItem key={cliente.cliente_id} value={cliente.cliente_id}>
-              {cliente.nombre_cliente} {cliente.apellido_cliente}
-            </MenuItem>
-          ))}
-        </TextField>
+          placeholder="Buscar por nombre o apellido"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          fullWidth
+        />
 
         <TextField
           select
-          fullWidth
           label="Estado"
-          value={estadoId}
-          onChange={(e) => handleEstadoChange(e.target.value)}
+          value={estadoContratoId}
+          onChange={(e) =>
+            setEstadoContratoId(
+              e.target.value === "" ? "" : Number(e.target.value)
+            )
+          }
+          fullWidth
         >
           <MenuItem value="">Todos</MenuItem>
-          {estadosContrato.map((estado) => (
+          {ESTADOS_CONTRATO.map((estado) => (
             <MenuItem key={estado.id} value={estado.id}>
               {estado.label}
             </MenuItem>
@@ -115,10 +116,12 @@ const ContratosFilters = ({ value, onFilter, onDirtyChange }: Props) => {
 
         <TextField
           select
-          fullWidth
           label="Plan"
           value={planId}
-          onChange={(e) => handlePlanChange(e.target.value)}
+          onChange={(e) =>
+            setPlanId(e.target.value === "" ? "" : Number(e.target.value))
+          }
+          fullWidth
         >
           <MenuItem value="">Todos</MenuItem>
           {planes.map((plan) => (
@@ -127,8 +130,14 @@ const ContratosFilters = ({ value, onFilter, onDirtyChange }: Props) => {
             </MenuItem>
           ))}
         </TextField>
+      </Box>
+
+      <Stack direction="row" justifyContent="flex-end">
+        <Button variant="text" onClick={handleClear}>
+          Limpiar
+        </Button>
       </Stack>
-    </Box>
+    </Stack>
   );
 };
 

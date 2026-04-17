@@ -1,13 +1,12 @@
-import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   IconButton,
-  Snackbar,
-  Alert,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+
+import { useNotifications } from "../../../components/ui/notifications/useNotifications";
 import CreateClienteForm from "./CreateClienteForm";
 
 type Cliente = {
@@ -32,59 +31,37 @@ export default function CreateClienteDialog({
   onClose,
   cliente,
 }: Props) {
+  const { success } = useNotifications();
   const isEditMode = !!cliente;
 
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setSnackbarOpen(false);
-  }, [open]);
-
   const handleSuccess = () => {
-    setSnackbarOpen(true);
+    success(
+      isEditMode
+        ? "Cliente actualizado correctamente."
+        : "Cliente creado correctamente."
+    );
     onClose();
   };
 
   return (
-    <>
-      <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-        <DialogTitle sx={{ pr: 6 }}>
-          {isEditMode ? "Editar cliente" : "Crear cliente"}
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle sx={{ pr: 6 }}>
+        {isEditMode ? "Editar cliente" : "Crear cliente"}
 
-          <IconButton
-            onClick={onClose}
-            sx={{ position: "absolute", right: 8, top: 8 }}
-          >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-
-        <DialogContent dividers>
-          <CreateClienteForm
-            cliente={cliente ?? undefined}
-            onSuccess={handleSuccess}
-          />
-        </DialogContent>
-      </Dialog>
-
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={3000}
-        onClose={() => setSnackbarOpen(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
-        <Alert
-          onClose={() => setSnackbarOpen(false)}
-          severity="success"
-          variant="filled"
-          sx={{ width: "100%" }}
+        <IconButton
+          onClick={onClose}
+          sx={{ position: "absolute", right: 8, top: 8 }}
         >
-          {isEditMode
-            ? "Cliente actualizado correctamente"
-            : "Cliente creado correctamente"}
-        </Alert>
-      </Snackbar>
-    </>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent dividers>
+        <CreateClienteForm
+          cliente={cliente ?? undefined}
+          onSuccess={handleSuccess}
+        />
+      </DialogContent>
+    </Dialog>
   );
 }

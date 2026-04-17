@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -9,11 +9,11 @@ import {
   Typography,
   Stack,
   Divider,
-  CircularProgress,
   Alert,
   Box,
   Chip,
   Tooltip,
+  Skeleton,
 } from "@mui/material";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
@@ -69,6 +69,11 @@ export default function ClienteDetailDialog({
     isLoading: isLoadingContratos,
   } = useContratos(clienteId ? { cliente_id: clienteId } : undefined);
 
+  const clienteSearchText = useMemo(() => {
+    if (!cliente) return "";
+    return `${cliente.nombre_cliente ?? ""} ${cliente.apellido_cliente ?? ""}`.trim();
+  }, [cliente]);
+
   if (!cliente) return null;
 
   const domicilioNoEncontrado =
@@ -77,8 +82,14 @@ export default function ClienteDetailDialog({
   const hasContratos = contratos.length > 0;
 
   const handleGoToContratos = () => {
+    const params = new URLSearchParams();
+
+    if (clienteSearchText) {
+      params.set("search", clienteSearchText);
+    }
+
     onClose();
-    navigate(`/contratos?cliente_id=${cliente.cliente_id}`);
+    navigate(`/contratos?${params.toString()}`);
   };
 
   return (
@@ -126,8 +137,7 @@ export default function ClienteDetailDialog({
                 <b>DNI:</b> {cliente.dni ?? cliente.dni_cliente ?? "-"}
               </Typography>
               <Typography>
-                <b>Teléfono:</b>{" "}
-                {cliente.telefono ?? cliente.telefono_cliente ?? "-"}
+                <b>Teléfono:</b> {cliente.telefono ?? cliente.telefono_cliente ?? "-"}
               </Typography>
             </Stack>
 
@@ -147,7 +157,7 @@ export default function ClienteDetailDialog({
                   <HomeOutlinedIcon fontSize="small" />
                   <Typography variant="h6">Domicilio vigente</Typography>
 
-                  {!domicilioNoEncontrado && !isLoadingDomicilio && (
+                  {!domicilioNoEncontrado && !isLoadingDomicilio && domicilio && (
                     <Chip label="Vigente" color="success" size="small" />
                   )}
                 </Stack>
@@ -189,16 +199,18 @@ export default function ClienteDetailDialog({
               </Box>
 
               {isLoadingDomicilio ? (
-                <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
-                  <CircularProgress size={24} />
-                </Box>
+                <Stack spacing={1}>
+                  <Skeleton variant="text" width="80%" height={28} />
+                  <Skeleton variant="text" width="65%" height={28} />
+                  <Skeleton variant="text" width="55%" height={28} />
+                </Stack>
               ) : domicilioNoEncontrado ? (
                 <Typography color="text.secondary">
                   El cliente no posee un domicilio vigente.
                 </Typography>
               ) : isErrorDomicilio ? (
                 <Alert severity="error">
-                  Error al cargar el domicilio vigente
+                  Error al cargar el domicilio vigente.
                 </Alert>
               ) : domicilio ? (
                 <Stack spacing={1}>
@@ -255,9 +267,9 @@ export default function ClienteDetailDialog({
               </Box>
 
               {isLoadingContratos ? (
-                <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
-                  <CircularProgress size={24} />
-                </Box>
+                <Stack spacing={1}>
+                  <Skeleton variant="text" width="55%" height={28} />
+                </Stack>
               ) : hasContratos ? (
                 <Typography color="text.secondary">
                   El cliente posee {contratos.length} contrato

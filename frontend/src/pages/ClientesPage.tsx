@@ -14,7 +14,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  CircularProgress,
   Alert,
   Button,
   Box,
@@ -24,6 +23,9 @@ import {
   Stack,
   Typography,
   Divider,
+  Tooltip,
+  Skeleton,
+  Paper,
 } from "@mui/material";
 
 import PageContainer from "../components/ui/PageContainer";
@@ -43,14 +45,11 @@ const ClientesPage = () => {
     const timeout = setTimeout(() => {
       setSearch(searchInput.trim());
     }, 300);
+
     return () => clearTimeout(timeout);
   }, [searchInput]);
 
   const { data, isLoading, isError } = useClientes(search);
-
-  // =========================
-  // HANDLERS
-  // =========================
 
   const handleOpenDetail = (cliente: any) => {
     setSelectedCliente(cliente);
@@ -75,10 +74,6 @@ const ClientesPage = () => {
     setOpenCreate(false);
   };
 
-  // =========================
-  // RENDER
-  // =========================
-
   return (
     <PageContainer
       title="Clientes"
@@ -94,8 +89,6 @@ const ClientesPage = () => {
       }
     >
       <ContentCard>
-
-        {/* 🔥 HEADER PROLIJO */}
         <Stack
           direction="row"
           justifyContent="space-between"
@@ -131,38 +124,36 @@ const ClientesPage = () => {
         <Divider />
 
         <Box sx={{ px: 2, py: 2 }}>
+          <CreateClienteDialog open={openCreate} onClose={handleCloseCreate} />
 
-          {/* =========================
-              CREATE DIALOG
-          ========================= */}
-          <CreateClienteDialog
-            open={openCreate}
-            onClose={handleCloseCreate}
-          />
-
-          {/* =========================
-              LOADING
-          ========================= */}
           {isLoading && (
-            <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-              <CircularProgress />
-            </Box>
+            <Stack spacing={1.2} sx={{ mt: 1 }}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} variant="rounded" height={42} />
+              ))}
+            </Stack>
           )}
 
-          {/* =========================
-              ERROR
-          ========================= */}
-          {isError && (
+          {isError && !isLoading && (
             <Alert severity="error" sx={{ mt: 2 }}>
               Error al cargar clientes
             </Alert>
           )}
 
-          {/* =========================
-              TABLE
-          ========================= */}
-          {data && (
+          {!isLoading && !isError && data && data.length === 0 && (
+            <Box sx={{ textAlign: "center", py: 6 }}>
+              <Typography variant="h6">No hay clientes</Typography>
+              <Typography variant="body2" color="text.secondary">
+                No se encontraron clientes con los filtros aplicados.
+              </Typography>
+            </Box>
+          )}
+
+          {!isLoading && !isError && data && data.length > 0 && (
             <TableContainer
+              component={Paper}
+              elevation={0}
+              variant="outlined"
               sx={{
                 maxHeight: "60vh",
                 overflow: "auto",
@@ -176,7 +167,9 @@ const ClientesPage = () => {
                     <TableCell sx={{ fontWeight: 600 }}>Nombre</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Apellido</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Acciones</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }} align="center">
+                      Acciones
+                    </TableCell>
                   </TableRow>
                 </TableHead>
 
@@ -195,10 +188,12 @@ const ClientesPage = () => {
                       <TableCell>{cliente.nombre_cliente}</TableCell>
                       <TableCell>{cliente.apellido_cliente}</TableCell>
                       <TableCell>{cliente.email_cliente}</TableCell>
-                      <TableCell>
-                        <IconButton onClick={() => handleOpenDetail(cliente)}>
-                          <VisibilityOutlinedIcon />
-                        </IconButton>
+                      <TableCell align="center">
+                        <Tooltip title="Ver detalle del cliente">
+                          <IconButton onClick={() => handleOpenDetail(cliente)}>
+                            <VisibilityOutlinedIcon />
+                          </IconButton>
+                        </Tooltip>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -206,13 +201,9 @@ const ClientesPage = () => {
               </Table>
             </TableContainer>
           )}
-
         </Box>
       </ContentCard>
 
-      {/* =========================
-          DETAIL DIALOG
-      ========================= */}
       <ClienteDetailDialog
         open={openDetail}
         cliente={selectedCliente}
@@ -220,9 +211,6 @@ const ClientesPage = () => {
         onEdit={handleOpenEdit}
       />
 
-      {/* =========================
-          EDIT DIALOG
-      ========================= */}
       <CreateClienteDialog
         open={openEdit}
         onClose={handleCloseEdit}

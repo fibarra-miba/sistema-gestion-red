@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { TextField, Button, Box, Alert } from "@mui/material";
 import { useCreateCliente } from "../hooks/useCreateCliente";
 import { useUpdateCliente } from "../hooks/useUpdateCliente";
+import { getErrorMessage } from "../../../shared/utils/getErrorMessage";
 
 type Props = {
   onSuccess?: () => void;
@@ -71,7 +72,7 @@ const CreateClienteForm = ({ onSuccess, cliente }: Props) => {
     reset(mappedClienteValues);
   }, [mappedClienteValues, reset, clearErrors]);
 
-  const handleError = (error: any) => {
+  const handleServerValidationErrors = (error: any) => {
     const response = error?.response?.data;
 
     if (response?.detail && Array.isArray(response.detail)) {
@@ -100,14 +101,11 @@ const CreateClienteForm = ({ onSuccess, cliente }: Props) => {
           });
         }
       });
-      return;
+
+      return true;
     }
 
-    setErrorMsg(
-      isEditMode
-        ? "Error al actualizar cliente"
-        : "Error al crear cliente"
-    );
+    return false;
   };
 
   const onSubmit = (data: ClienteForm) => {
@@ -124,7 +122,14 @@ const CreateClienteForm = ({ onSuccess, cliente }: Props) => {
           onSuccess: () => {
             onSuccess?.();
           },
-          onError: handleError,
+          onError: (error: any) => {
+            const handled = handleServerValidationErrors(error);
+            if (!handled) {
+              setErrorMsg(
+                getErrorMessage(error, "No se pudo actualizar el cliente.")
+              );
+            }
+          },
         }
       );
       return;
@@ -140,7 +145,14 @@ const CreateClienteForm = ({ onSuccess, cliente }: Props) => {
           reset(EMPTY_VALUES);
           onSuccess?.();
         },
-        onError: handleError,
+        onError: (error: any) => {
+          const handled = handleServerValidationErrors(error);
+          if (!handled) {
+            setErrorMsg(
+              getErrorMessage(error, "No se pudo crear el cliente.")
+            );
+          }
+        },
       }
     );
   };
@@ -163,6 +175,7 @@ const CreateClienteForm = ({ onSuccess, cliente }: Props) => {
         error={!!errors.nombre}
         helperText={errors.nombre?.message}
         fullWidth
+        disabled={isPending}
       />
 
       <TextField
@@ -173,6 +186,7 @@ const CreateClienteForm = ({ onSuccess, cliente }: Props) => {
         error={!!errors.apellido}
         helperText={errors.apellido?.message}
         fullWidth
+        disabled={isPending}
       />
 
       <TextField
@@ -187,6 +201,7 @@ const CreateClienteForm = ({ onSuccess, cliente }: Props) => {
         error={!!errors.email}
         helperText={errors.email?.message}
         fullWidth
+        disabled={isPending}
       />
 
       <TextField
@@ -197,6 +212,7 @@ const CreateClienteForm = ({ onSuccess, cliente }: Props) => {
         error={!!errors.dni}
         helperText={errors.dni?.message}
         fullWidth
+        disabled={isPending}
       />
 
       <TextField
@@ -207,6 +223,7 @@ const CreateClienteForm = ({ onSuccess, cliente }: Props) => {
         error={!!errors.telefono}
         helperText={errors.telefono?.message}
         fullWidth
+        disabled={isPending}
       />
 
       <Button type="submit" variant="contained" disabled={isPending}>

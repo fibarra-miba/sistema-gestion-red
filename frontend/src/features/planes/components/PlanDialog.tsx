@@ -1,5 +1,4 @@
 import {
-  Alert,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -10,11 +9,10 @@ import type { Plan, PlanCreateInput } from "../types/plan";
 interface PlanDialogProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (values: PlanCreateInput) => void;
+  onSubmit: (values: PlanCreateInput) => void | Promise<void>;
   title: string;
   defaultValues?: Partial<Plan>;
   isSubmitting?: boolean;
-  errorMessage?: string | null;
 }
 
 export function PlanDialog({
@@ -24,18 +22,22 @@ export function PlanDialog({
   title,
   defaultValues,
   isSubmitting = false,
-  errorMessage,
 }: PlanDialogProps) {
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog
+      open={open}
+      onClose={(_, reason) => {
+        if (isSubmitting && reason !== "escapeKeyDown") {
+          return;
+        }
+        onClose();
+      }}
+      fullWidth
+      maxWidth="sm"
+    >
       <DialogTitle>{title}</DialogTitle>
-      <DialogContent>
-        {errorMessage && (
-          <Alert severity="error" sx={{ mt: 1 }}>
-            {errorMessage}
-          </Alert>
-        )}
 
+      <DialogContent>
         <PlanForm
           defaultValues={defaultValues}
           onSubmit={onSubmit}

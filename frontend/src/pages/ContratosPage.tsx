@@ -8,10 +8,10 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Collapse,
   Divider,
   IconButton,
+  Skeleton,
   Stack,
   Typography,
 } from "@mui/material";
@@ -27,34 +27,47 @@ import ContratoDetailDialog from "../features/contratos/components/ContratoDetai
 import CreateContratoDialog from "../features/contratos/components/CreateContratoDialog";
 import ContratosFilters from "../features/contratos/components/ContratosFilters";
 
-import type { ContratoCreateInput } from "../features/contratos/types/contrato";
+import type {
+  Contrato,
+  ContratoCreateInput,
+} from "../features/contratos/types/contrato";
 
 type ContratosPageFilters = {
-  cliente_id?: number;
+  search?: string;
   estado_contrato_id?: number;
   plan_id?: number;
+};
+
+const ContratosTableSkeleton = () => {
+  return (
+    <Stack spacing={1.25}>
+      {Array.from({ length: 6 }).map((_, index) => (
+        <Skeleton key={index} variant="rounded" height={44} />
+      ))}
+    </Stack>
+  );
 };
 
 const ContratosPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const clienteIdFromUrl = searchParams.get("cliente_id");
+  const searchFromUrl = searchParams.get("search");
   const estadoIdFromUrl = searchParams.get("estado_contrato_id");
   const planIdFromUrl = searchParams.get("plan_id");
 
   const initialFilters = useMemo<ContratosPageFilters>(
     () => ({
-      cliente_id: clienteIdFromUrl ? Number(clienteIdFromUrl) : undefined,
+      search: searchFromUrl ?? "",
       estado_contrato_id: estadoIdFromUrl ? Number(estadoIdFromUrl) : undefined,
       plan_id: planIdFromUrl ? Number(planIdFromUrl) : undefined,
     }),
-    [clienteIdFromUrl, estadoIdFromUrl, planIdFromUrl]
+    [searchFromUrl, estadoIdFromUrl, planIdFromUrl]
   );
 
   const [filters, setFilters] = useState<ContratosPageFilters>(initialFilters);
   const [filtersExpanded, setFiltersExpanded] = useState(true);
   const [filtersDirty, setFiltersDirty] = useState(
-    !!initialFilters.cliente_id ||
+    !!initialFilters.search ||
       !!initialFilters.estado_contrato_id ||
       !!initialFilters.plan_id
   );
@@ -62,32 +75,69 @@ const ContratosPage = () => {
   useEffect(() => {
     setFilters(initialFilters);
     setFiltersDirty(
-      !!initialFilters.cliente_id ||
+      !!initialFilters.search ||
         !!initialFilters.estado_contrato_id ||
         !!initialFilters.plan_id
     );
   }, [initialFilters]);
 
-  const { data = [], isLoading, isError } = useContratos(filters);
+  const serverFilters = useMemo(
+    () => ({
+      estado_contrato_id: filters.estado_contrato_id,
+      plan_id: filters.plan_id,
+    }),
+    [filters.estado_contrato_id, filters.plan_id]
+  );
+
+  const { data = [], isLoading, isError } = useContratos(serverFilters);
   const createContratoMutation = useCreateContrato();
 
   const [selectedContratoId, setSelectedContratoId] = useState<number | null>(null);
   const [openCreate, setOpenCreate] = useState(false);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<{ contratoId: number }>;
+      if (customEvent.detail?.contratoId) {
+        setSelectedContratoId(customEvent.detail.contratoId);
+      }
+    };
+
+    window.addEventListener("open-contrato-detail", handler);
+    return () => window.removeEventListener("open-contrato-detail", handler);
+  }, []);
 
   const errorMessage = useMemo(() => {
     const err = createContratoMutation.error as any;
     return err?.response?.data?.detail || null;
   }, [createContratoMutation.error]);
 
+  const filteredData = useMemo(() => {
+    const search = (filters.search ?? "").trim().toLowerCase();
+
+    if (!search) {
+      return data;
+    }
+
+    return data.filter((contrato: Contrato) => {
+      const cliente =
+        `${contrato.cliente_nombre} ${contrato.cliente_apellido}`.toLowerCase();
+
+      return cliente.includes(search);
+    });
+  }, [data, filters.search]);
+
   const updateSearchParams = (nextFilters: ContratosPageFilters) => {
     const next = new URLSearchParams();
 
-    if (nextFilters.cliente_id !== undefined) {
-      next.set("cliente_id", String(nextFilters.cliente_id));
+    if (nextFilters.search?.trim()) {
+      next.set("search", nextFilters.search.trim());
     }
+
     if (nextFilters.estado_contrato_id !== undefined) {
       next.set("estado_contrato_id", String(nextFilters.estado_contrato_id));
     }
+
     if (nextFilters.plan_id !== undefined) {
       next.set("plan_id", String(nextFilters.plan_id));
     }
@@ -106,7 +156,8 @@ const ContratosPage = () => {
   };
 
   const handleResetFilters = () => {
-    setFilters({});
+    const nextFilters: ContratosPageFilters = { search: "" };
+    setFilters(nextFilters);
     setFiltersDirty(false);
     setSearchParams(new URLSearchParams());
   };
@@ -145,7 +196,10 @@ const ContratosPage = () => {
                 </Button>
               )}
 
-              <IconButton onClick={() => setFiltersExpanded((prev) => !prev)}>
+              <IconButton
+                onClick={() => setFiltersExpanded((prev) => !prev)}
+                aria-label={filtersExpanded ? "Ocultar filtros" : "Mostrar filtros"}
+              >
                 {filtersExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
               </IconButton>
             </Stack>
@@ -169,19 +223,17 @@ const ContratosPage = () => {
         <Divider />
 
         <Box sx={{ px: 2, py: 2 }}>
-          {isLoading && (
-            <Box sx={{ display: "flex", justifyContent: "center" }}>
-              <CircularProgress />
-            </Box>
-          )}
+          {isLoading && <ContratosTableSkeleton />}
 
-          {isError && (
-            <Alert severity="error">Error al cargar contratos</Alert>
+          {isError && !isLoading && (
+            <Alert severity="error">
+              Error al cargar contratos. Intentá nuevamente.
+            </Alert>
           )}
 
           {!isLoading && !isError && (
             <ContratosTable
-              contratos={data}
+              contratos={filteredData}
               onView={(contrato) => setSelectedContratoId(contrato.contrato_id)}
             />
           )}

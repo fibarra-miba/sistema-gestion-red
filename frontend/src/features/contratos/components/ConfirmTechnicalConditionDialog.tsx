@@ -11,6 +11,9 @@ import {
   TextField,
 } from "@mui/material";
 
+import { useNotifications } from "../../../components/ui/notifications/useNotifications";
+import { getErrorMessage } from "../../../shared/utils/getErrorMessage";
+
 import { useConfirmTechnicalCondition } from "../hooks/useConfirmTechnicalCondition";
 import type { Contrato } from "../types/contrato";
 
@@ -25,6 +28,8 @@ const ConfirmTechnicalConditionDialog = ({
   contrato,
   onClose,
 }: Props) => {
+  const { success, error: notifyError } = useNotifications();
+
   const confirmMutation = useConfirmTechnicalCondition();
 
   const [apto, setApto] = useState(true);
@@ -44,26 +49,49 @@ const ConfirmTechnicalConditionDialog = ({
   if (!contrato) return null;
 
   const handleSubmit = async () => {
-    await confirmMutation.mutateAsync({
-      contratoId: contrato.contrato_id,
-      payload: {
-        apto,
-        fecha_programacion_pinstalacion: apto
-          ? undefined
-          : new Date(fechaProgramacion).toISOString(),
-        tecnico_pinstalacion: tecnico || undefined,
-        notas_pinstalacion: notas || undefined,
-      },
-    });
+    try {
+      await confirmMutation.mutateAsync({
+        contratoId: contrato.contrato_id,
+        payload: {
+          apto,
+          fecha_programacion_pinstalacion: apto
+            ? undefined
+            : new Date(fechaProgramacion).toISOString(),
+          tecnico_pinstalacion: tecnico || undefined,
+          notas_pinstalacion: notas || undefined,
+        },
+      });
 
-    onClose();
+      success(
+        apto
+          ? "Condición técnica confirmada. El contrato puede activarse."
+          : "Condición técnica confirmada. Se programó la instalación."
+      );
+
+      onClose();
+    } catch (err: any) {
+      notifyError(
+        getErrorMessage(err, "No se pudo confirmar la condición técnica.")
+      );
+    }
   };
 
   const disabled =
-    confirmMutation.isPending || (!apto && fechaProgramacion.trim() === "");
+    confirmMutation.isPending ||
+    (!apto && fechaProgramacion.trim() === "");
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog
+      open={open}
+      onClose={(_, reason) => {
+        if (confirmMutation.isPending && reason !== "escapeKeyDown") {
+          return;
+        }
+        onClose();
+      }}
+      fullWidth
+      maxWidth="sm"
+    >
       <DialogTitle>Confirmar condición técnica</DialogTitle>
 
       <DialogContent dividers>
@@ -110,13 +138,16 @@ const ConfirmTechnicalConditionDialog = ({
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose}>Cancelar</Button>
+        <Button onClick={onClose} disabled={confirmMutation.isPending}>
+          Cancelar
+        </Button>
+
         <Button
           variant="contained"
           onClick={handleSubmit}
           disabled={disabled}
         >
-          Confirmar
+          {confirmMutation.isPending ? "Confirmando..." : "Confirmar"}
         </Button>
       </DialogActions>
     </Dialog>

@@ -1,13 +1,15 @@
-import { Alert, Dialog, DialogContent, DialogTitle } from "@mui/material";
+import { Dialog, DialogContent, DialogTitle } from "@mui/material";
+import { useNotifications } from "../../../components/ui/notifications/useNotifications";
+import { getErrorMessage } from "../../../shared/utils/getErrorMessage";
+
 import type { ContratoCreateInput } from "../types/contrato";
 import CreateContratoForm from "./CreateContratoForm";
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSubmit: (values: ContratoCreateInput) => void | Promise<void>;
+  onSubmit: (values: ContratoCreateInput) => Promise<void>;
   isSubmitting?: boolean;
-  errorMessage?: string | null;
 }
 
 const CreateContratoDialog = ({
@@ -15,21 +17,35 @@ const CreateContratoDialog = ({
   onClose,
   onSubmit,
   isSubmitting = false,
-  errorMessage,
 }: Props) => {
+  const { success, error: notifyError } = useNotifications();
+
+  const handleSubmit = async (values: ContratoCreateInput) => {
+    try {
+      await onSubmit(values);
+      success("Contrato creado correctamente.");
+    } catch (err: any) {
+      notifyError(getErrorMessage(err, "No se pudo crear el contrato."));
+    }
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog
+      open={open}
+      onClose={(_, reason) => {
+        if (isSubmitting && reason !== "escapeKeyDown") {
+          return;
+        }
+        onClose();
+      }}
+      fullWidth
+      maxWidth="sm"
+    >
       <DialogTitle>Nuevo contrato</DialogTitle>
 
       <DialogContent>
-        {errorMessage && (
-          <Alert severity="error" sx={{ mt: 1 }}>
-            {errorMessage}
-          </Alert>
-        )}
-
         <CreateContratoForm
-          onSubmit={onSubmit}
+          onSubmit={handleSubmit}
           isSubmitting={isSubmitting}
         />
       </DialogContent>
